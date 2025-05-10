@@ -17,19 +17,21 @@ client = AsyncIOMotorClient(FILE_DB_URL)
 db = client[FILE_DB_NAME]
 instance = Instance.from_db(db)
 
+
+
+
 @instance.register
 class Media(Document):
-    file_id = fields.StrField(attribute='_id')
-    file_ref = fields.StrField(allow_none=True)
-    file_name = fields.StrField(required=True)
+    file_id = fields.StringField(attribute='_id')  # Fixed here
+    file_ref = fields.StringField(allow_none=True)
+    file_name = fields.StringField(required=True)
     file_size = fields.IntField(required=True)
-    file_type = fields.StrField(allow_none=True)
-    mime_type = fields.StrField(allow_none=True)
-    caption = fields.StrField(allow_none=True)
+    file_type = fields.StringField(allow_none=True)
+    mime_type = fields.StringField(allow_none=True)
+    caption = fields.StringField(allow_none=True)
 
     class Meta:
         collection_name = COLLECTION_NAME
-
 
 async def save_file(media):
     file_id, file_ref = unpack_new_file_id(media.file_id)
