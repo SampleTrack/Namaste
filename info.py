@@ -60,7 +60,7 @@ BUTTON_LOCK = is_enabled(environ.get("BUTTON_LOCK", "True"), True)
 SHORT_URL = environ.get("SHORT_URL")
 SHORT_API = environ.get("SHORT_API")
 
-IS_VERIFY = is_enabled((environ.get('IS_VERIFY', 'False)), False)
+IS_VERIFY = is_enabled(environ.get('IS_VERIFY', 'False'), False)
 HOW_TO_VERIFY = environ.get('HOW_TO_VERIFY', "https://t.me/+IvrcMfPKCMxkNjVl")
 VERIFY2_URL = environ.get('VERIFY2_URL', "kingurl.in")
 VERIFY2_API = environ.get('VERIFY2_API', "d5be075758edd71808de5e98b339af720e5eabce")
