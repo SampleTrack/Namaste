@@ -5,7 +5,7 @@ import random
 from pyrogram.errors import InputUserDeactivated, UserNotParticipant, FloodWait, UserIsBlocked, PeerIdInvalid                             
 from pyrogram.types import Message, InlineKeyboardButton
 from pyrogram import filters, enums
-from info import AUTH_CHANNEL, LONG_IMDB_DESCRIPTION, MAX_LIST_ELM, SHORT_URL, SHORT_API, SHORTLINK_URL, SHORTLINK_API, LOG_CHANNEL, GRP_LNK, CHNL_LNK, IS_VERIFY, VERIFY2_URL, VERIFY2_API, HOW_TO_VERIFY
+from info import AUTH_CHANNEL, LONG_IMDB_DESCRIPTION, MAX_LIST_ELM, SHORT_URL, SHORT_API, SHORTLINK_URL, SHORTLINK_API, LOG_CHANNEL, GRP_LNK, CHNL_LNK, IS_VERIFY, VERIFY1_URL, VERIFY1_API, VERIFY2_API, HOW_TO_VERIFY
 from imdb import Cinemagoer
 from typing import Union, List
 from datetime import datetime, timedelta
@@ -375,8 +375,8 @@ async def admin_filter(filt, client, message):
 
 async def get_verify_shorted_link(num, link):
     if int(num) == 1:
-        API = SHORTLINK_API
-        URL = SHORTLINK_URL
+        API = VERIFY1_API
+        URL = VERIFY1_URL
     else:
         API = VERIFY2_API
         URL = VERIFY2_URL
