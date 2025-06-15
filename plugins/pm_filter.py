@@ -16,15 +16,39 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
 
 
+
 @Client.on_message(filters.private & filters.text & filters.chat(AUTH_USERS) if AUTH_USERS else filters.text & filters.private)
 async def auto_pm_fill(b, m):
-    if PMFILTER:       
-        if G_FILTER:
-            kd = await global_filters(b, m)
-            if kd == False: await pm_AutoFilter(b, m)
-        else: await pm_AutoFilter(b, m)
-    else: return 
+    if PMFILTER:
+        # Send initial message
+        searching_msg = await m.reply_text("🔍 Searching", quote=True)
 
+        # Simulate loading animation
+        try:
+            for dot_count in range(1, 4):
+                await asyncio.sleep(0.5)
+                await searching_msg.edit_text("🔍 Searching" + "." * dot_count)
+
+            # Actual filter logic
+            if G_FILTER:
+                kd = await global_filters(b, m)
+                if kd == False:
+                    await pm_AutoFilter(b, m)
+            else:
+                await pm_AutoFilter(b, m)
+
+        except Exception as e:
+            logger.error(f"Error during filtering: {e}")
+            await searching_msg.edit_text("❌ An error occurred.")
+        finally:
+            await asyncio.sleep(1)
+            # Delete the "Searching..." message
+            try:
+                await searching_msg.delete()
+            except:
+                pass
+    else:
+        return
 @Client.on_callback_query(filters.create(lambda _, __, query: query.data.startswith("pmnext")))
 async def pm_next_page(bot, query):
     ident, req, key, offset = query.data.split("_")
