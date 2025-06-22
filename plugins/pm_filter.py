@@ -140,8 +140,8 @@ async def pm_AutoFilter(client, msg, pmspoll=False):
             [InlineKeyboardButton(text="❄️ ᴩᴀɢᴇꜱ 1/1", callback_data="pages")]
         )
         
-    wait_msg = await message.reply_text("⏳ Hang tight, searching for you...")
-           
+    wait_msg = await message.reply("⏳ Hang tight, searching for you...", quote=True)
+    
     if PM_IMDB:
         imdb = await get_poster(search)
     else:
