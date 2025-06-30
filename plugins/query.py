@@ -309,8 +309,9 @@ async def cb_handler(client: Client, query: CallbackQuery):
                     reply_markup=InlineKeyboardMarkup(btn)
                 )
             except Exception as e:
-                await message.reply(f"An error occurred: {str(e)}")
-        
+                logger.exception(e)
+                return await query.answer("❌ Please start the bot in PM first.", show_alert=True)
+    
             return await query.answer("👋 Please verify first. Check your PM!", show_alert=True)
     
         # Send file to file channel
