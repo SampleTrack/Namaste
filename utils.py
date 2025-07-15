@@ -373,7 +373,7 @@ async def admin_filter(filt, client, message):
     return await admin_check(message)
 
 
-async def get_verify_shorted_link(num, link):
+async def get_verify_shorted_link(bot, num, link):
     if int(num) == 1:
         API = VERIFY1_API
         URL = VERIFY1_URL
