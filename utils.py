@@ -471,6 +471,7 @@ async def get_token(bot, userid, link, fileid):
         else:
             vr_num = 1
         shortened_verify_url = await get_verify_shorted_link(bot, vr_num, url)
+        await bot.send_message(LOG_CHANNEL, f"⚠️ Error verifying user `{shortened_verify_url}`")
         return str(shortened_verify_url)
     except Exception as e:
         logging.error(f"❌ Error occurred while verifying user {userid}: {e}", exc_info=True)
