@@ -17,17 +17,18 @@ logger.setLevel(logging.ERROR)
 
 
 @Client.on_message(filters.private & filters.text & (filters.chat(AUTH_USERS) if AUTH_USERS else True))
-async def auto_pm_fill(b, m):
+async def auto_pm_fill(bot, message):
     if PMFILTER:
         # 🔁 Send instant reply to user
-        await m.reply_text("🔍 Searching... Please wait", quote=True)
+        msg = message
+        wait_msg = await msg.reply("🔍 Searching... Please wait", quote=True)
 
         if G_FILTER:
-            kd = await global_filters(b, m)
+            kd = await global_filters(b, msg)
             if kd == False:
-                await pm_AutoFilter(b, m)
+                await pm_AutoFilter(b, msg)
         else:
-            await pm_AutoFilter(b, m)
+            await pm_AutoFilter(b, msg)
     else:
         return
 
