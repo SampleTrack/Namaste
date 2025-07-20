@@ -18,12 +18,21 @@ logger.setLevel(logging.ERROR)
 
 @Client.on_message(filters.private & filters.text & filters.chat(AUTH_USERS) if AUTH_USERS else filters.text & filters.private)
 async def auto_pm_fill(b, m):
-    if PMFILTER:       
-        if G_FILTER:
-            kd = await global_filters(b, m)
-            if kd == False: await pm_AutoFilter(b, m)
-        else: await pm_AutoFilter(b, m)
-    else: return 
+    if PMFILTER:
+        # 🔍 Send instant reply to user indicating search is in progress
+        wait_msg = await m.reply("🔍 Searching... Please wait", quote=True)
+        try:
+            if G_FILTER:
+                kd = await global_filters(b, m)
+                if kd == False:
+                    await pm_AutoFilter(b, m)
+            else:
+                await pm_AutoFilter(b, m)
+        except Exception as e:
+            # You can log or handle the error here
+            await m.reply(f"❌ Error occurred: {str(e)}")
+    else:
+        return
 
 @Client.on_callback_query(filters.create(lambda _, __, query: query.data.startswith("pmnext")))
 async def pm_next_page(bot, query):
