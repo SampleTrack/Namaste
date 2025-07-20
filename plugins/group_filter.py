@@ -158,27 +158,32 @@ async def advantage_spoll_choker(bot, query):
 
 @Client.on_message(filters.group & filters.text & filters.incoming & filters.chat(AUTH_GROUPS) if AUTH_GROUPS else filters.text & filters.incoming & filters.group)
 async def give_filter(client, message):
-    if G_FILTER:
-        if G_MODE.get(str(message.chat.id)) == "False":
-            return 
+    # Send the "searching" message
+    searching_msg = await message.reply_text("🔎 Searching...")
+    try:
+        if G_FILTER:
+            if G_MODE.get(str(message.chat.id)) == "False":
+                return
+            else:
+                kd = await global_filters(client, message)
+            if kd == False:
+                k = await manual_filters(client, message)
+                if k == False:
+                    if FILTER_MODE.get(str(message.chat.id)) == "False":
+                        return
+                    else:
+                        await auto_filter(client, message)
         else:
-            kd = await global_filters(client, message)
-        if kd == False:          
             k = await manual_filters(client, message)
             if k == False:
                 if FILTER_MODE.get(str(message.chat.id)) == "False":
                     return
                 else:
-                    await auto_filter(client, message)   
-    else:
-        k = await manual_filters(client, message)
-        if k == False:
-            if FILTER_MODE.get(str(message.chat.id)) == "False":
-                return
-            else:
-                await auto_filter(client, message)
-
-
+                    await auto_filter(client, message)
+    finally:
+        # Delete the "searching" message after execution (or error)
+        await searching_msg.delete()
+        
 async def auto_filter(client, msg, spoll=False):
     if not spoll:
         message = msg
