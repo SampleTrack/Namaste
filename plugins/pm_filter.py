@@ -19,18 +19,26 @@ logger.setLevel(logging.ERROR)
 @Client.on_message(filters.private & filters.text & filters.chat(AUTH_USERS) if AUTH_USERS else filters.text & filters.private)
 async def auto_pm_fill(b, m):
     if PMFILTER:
-        # Send the "searching" message
-        searching_msg = await m.reply_text("🔎 Searching...")
+        # 🔁 Send instant reply to user
+        message = m
+        wait_msg = await message.reply("🔍 Searching... Please wait", quote=True)
+
         try:
             if G_FILTER:
-                kd = await global_filters(b, m)
+                kd = await global_filters(b, message)
                 if kd == False:
-                    await pm_AutoFilter(b, m)
+                    await pm_AutoFilter(b, message)
+                # ✅ Delete searching message
+                await wait_msg.delete()
             else:
-                await pm_AutoFilter(b, m)
-        finally:
-            # Delete the "searching" message after execution (or error)
-            await searching_msg.delete()
+                await pm_AutoFilter(b, message)
+                # ✅ Delete searching message
+                await wait_msg.delete()
+
+        except Exception as e:
+            # ⚠ Optional: Handle errors gracefully
+            print(f"Error occurred: {e}")
+            await wait_msg.delete()
     else:
         return
 
