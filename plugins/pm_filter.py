@@ -18,23 +18,19 @@ logger.setLevel(logging.ERROR)
 
 @Client.on_message(filters.private & filters.text & filters.chat(AUTH_USERS) if AUTH_USERS else filters.text & filters.private)
 async def auto_pm_fill(b, m):
-    # 🔁 Send instant reply to user
-    message = m
-    wait_msg = await message.reply("🔍 Searching... Please wait", quote=True)
-
     if PMFILTER:
-        if G_FILTER:
-            kd = await global_filters(b, message)
-            if not kd:
-                await pm_AutoFilter(b, message)
-        else:
-            await pm_AutoFilter(b, message)
-
-        # ✅ Delete the "Searching..." message after processing
+        # Send the "searching" message
+        searching_msg = await m.reply_text("🔎 Searching...")
         try:
-            await wait_msg.delete()
-        except Exception as e:
-            logging.warning(f"Failed to delete wait_msg: {e}")
+            if G_FILTER:
+                kd = await global_filters(b, m)
+                if kd == False:
+                    await pm_AutoFilter(b, m)
+            else:
+                await pm_AutoFilter(b, m)
+        finally:
+            # Delete the "searching" message after execution (or error)
+            await searching_msg.delete()
     else:
         return
 
