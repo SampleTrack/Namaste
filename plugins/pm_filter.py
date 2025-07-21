@@ -21,6 +21,10 @@ async def auto_pm_fill(b, m):
     if PMFILTER:
         # 🔍 Send instant reply to user indicating search is in progress
         s = await m.reply("🔍 Searching... Please wait", quote=True)
+
+        # 🕒 Auto-delete the "Searching..." message after 10 minutes (600 seconds)
+        await s.delete(delay=60)
+
         try:
             if G_FILTER:
                 kd = await global_filters(b, m)
@@ -29,7 +33,7 @@ async def auto_pm_fill(b, m):
             else:
                 await pm_AutoFilter(b, m, s)
         except Exception as e:
-            # You can log or handle the error here
+            # Log or handle the error
             await m.reply(f"❌ Error occurred: {str(e)}")
     else:
         return
