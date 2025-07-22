@@ -345,7 +345,8 @@ async def start(client, message):
         await message.reply_text(
             text="<b>Yᴏᴜ ᴀʀᴇ ɴᴏᴛ ᴠᴇʀɪғɪᴇᴅ!\nKɪɴᴅʟʏ ᴠᴇʀɪғʏ ᴛᴏ ᴄᴏɴᴛɪɴᴜᴇ Sᴏ ᴛʜᴀᴛ ʏᴏᴜ ᴄᴀɴ ɢᴇᴛ ᴀᴄᴄᴇss ᴛᴏ ᴜɴʟɪᴍɪᴛᴇᴅ ᴍᴏᴠɪᴇs ᴜɴᴛɪʟ 12 ʜᴏᴜʀs ғʀᴏᴍ ɴᴏᴡ !</b>",
             protect_content=True if PROTECT_CONTENT else False,
-            reply_markup=InlineKeyboardMarkup(btn)
+            reply_markup=InlineKeyboardMarkup(btn),
+            quote=True
         )
         return
     await client.send_cached_media(
@@ -405,14 +406,14 @@ async def channel_info(bot, message):
     except Exception as e:
         await message.reply(f"An error occurred: {str(e)}")
         
-        
+
 @Client.on_message(filters.command('logs') & filters.user(ADMINS))
 async def log_file(bot, message):
     """Send log file"""
     try:
-        await message.reply_document('Logs.txt')
+        await message.reply_document('Logs.txt', quote=True)
     except Exception as e:
-        await message.reply(str(e))
+        await message.reply(str(e), quote=True)
         
 @Client.on_message(filters.command('delete') & filters.user(ADMINS))
 async def delete(bot, message):
