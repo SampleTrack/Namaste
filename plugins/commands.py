@@ -273,7 +273,13 @@ async def start(client, message):
 
     files_ = await get_file_details(file_id)           
     if not files_:
-        pre, file_id = ((base64.urlsafe_b64decode(data + "=" * (-len(data) % 4))).decode("ascii")).split("_", 1)
+        try:
+            decoded_data = base64.urlsafe_b64decode(data + "=" * (-len(data) % 4)).decode("ascii")
+            pre, file_id = decoded_data.split("_", 1)
+        except Exception as e:
+            logger.exception("Base64 decoding failed!")
+            return await message.reply("⚠️ Invalid or expired file link. Please check the link and try again.")
+        
         try:
             if IS_VERIFY and not await check_verification(client, message.from_user.id):
                 btn = [[
