@@ -55,7 +55,8 @@ async def start(client, message):
             photo=random.choice(PICS),
             caption=script.START_TXT.format(mention, temp.U_NAME, temp.B_NAME),
             reply_markup=reply_markup,
-            parse_mode=enums.ParseMode.HTML
+            parse_mode=enums.ParseMode.HTML,
+            quote=True
         )
         await asyncio.sleep(2)
         if not await db.get_chat(message.chat.id):
@@ -100,7 +101,8 @@ async def start(client, message):
             photo=random.choice(PICS),
             caption=script.START_TXT.format(message.from_user.mention, temp.U_NAME, temp.B_NAME),
             reply_markup=reply_markup,
-            parse_mode=enums.ParseMode.HTML
+            parse_mode=enums.ParseMode.HTML,
+            quote=True
         )
         return await m.delete()
     if AUTH_CHANNEL and not await is_subscribed(client, message):
@@ -152,7 +154,8 @@ async def start(client, message):
             photo=random.choice(PICS),
             caption=script.START_TXT.format(message.from_user.mention, temp.U_NAME, temp.B_NAME),
             reply_markup=reply_markup,
-            parse_mode=enums.ParseMode.HTML
+            parse_mode=enums.ParseMode.HTML,
+            quote=True
         )
         return await m.delete()
     data = message.command[1]
