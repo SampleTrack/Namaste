@@ -7,7 +7,7 @@ from info import ADMINS, LOG_CHANNEL, SUPPORT_CHAT, UPDATE_CHANNEL, WELCOM_PIC, 
 from utils import get_size, temp, extract_user, get_file_id, get_poster, humanbytes, get_settings
 from database.users_chats_db import db
 from database.ia_filterdb import Media
-from datetime import datetime
+from datetime import datetime, timedelta
 import asyncio 
 from datetime import date, datetime
 import pytz
@@ -17,6 +17,7 @@ import logging, re, asyncio, time, shutil, psutil, os, sys
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
 
+EXPIRY_HOURS = 12         # Verification validity period
 
 @Client.on_message(filters.new_chat_members & filters.group)
 async def save_group(bot, message):
@@ -495,3 +496,44 @@ async def restart_bot(bot, msg):
     await sts.delete()
     os.execl(sys.executable, sys.executable, *sys.argv)
     
+@Client.on_message(filters.command("checkveri"))
+async def check_veri(client, message: Message):
+    args = message.text.split()
+
+    # User ID to check
+    if len(args) > 1:
+        if message.from_user.id not in ADMINS:
+            return await message.reply("❌ You are not allowed to check others' verification status.", quote=True)
+        try:
+            user_id = int(args[1])
+        except ValueError:
+            return await message.reply("⚠️ Invalid user ID.", quote=True)
+    else:
+        user_id = message.from_user.id
+
+    # Fetch verification info
+    data = await db.get_verified(user_id)
+
+    date_str = data.get('date', "1999-12-31")
+    time_str = data.get('time', "23:59:59")
+    verified_dt_str = f"{date_str} {time_str}"
+
+    # Convert to datetime
+    try:
+        tz = pytz.timezone("Asia/Kolkata")
+        verified_dt = tz.localize(datetime.strptime(verified_dt_str, "%Y-%m-%d %H:%M:%S"))
+        expiry_dt = verified_dt + timedelta(hours=EXPIRY_HOURS)
+        now = datetime.now(tz)
+        time_left = expiry_dt - now
+
+        if time_left.total_seconds() <= 0:
+            return await message.reply(f"⛔ Verification expired!\nLast verified on: `{verified_dt_str}`", quote=True)
+        
+        await message.reply(
+            f"✅ **User Verified**\n\n"
+            f"🗓️ Verified On: `{verified_dt_str}`\n"
+            f"⏳ Expires In: `{str(time_left).split('.')[0]}`", quote=True
+        )
+    except Exception as e:
+        await message.reply(f"❌ Error parsing verification data.\n\nDetails: `{e}`", quote=True)
+        
