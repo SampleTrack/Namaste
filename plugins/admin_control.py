@@ -503,16 +503,11 @@ async def restart_bot(bot, msg):
 async def check_veri(client, message: Message):
     args = message.text.split()
 
-    # Step 1: Determine user ID to check
+    # Only allow checking self
     if len(args) > 1:
-        if message.from_user.id not in ADMINS:
-            return await message.reply("❌ You're not allowed to check others' verification status.", quote=True)
-        try:
-            user_id = int(args[1])
-        except ValueError:
-            return await message.reply("⚠️ Invalid user ID.", quote=True)
-    else:
-        user_id = message.from_user.id
+        return await message.reply("⚠️ You can only check your own verification status.", quote=True)
+
+    user_id = message.from_user.id
 
     # Step 2: Fetch verification data
     data = await db.get_verified(user_id)
@@ -523,21 +518,18 @@ async def check_veri(client, message: Message):
 
     tz = pytz.timezone("Asia/Kolkata")
 
-    # Step 3: Handle first-time verification
+    # Step 3: Handle unverified users
     if verified_dt_str == default_dt_str:
-        if user_id == message.from_user.id:
-            return await message.reply("🟡 You haven't verified yet. Please verify to activate your access.", quote=True)
-        else:
-            return await message.reply("🟡 This user hasn't verified yet. It appears to be their first-time verification.", quote=True)
+        return await message.reply("🟡 You haven't verified yet. Please verify to activate your access.", quote=True)
 
     try:
-        # Step 4: Time calculations
+        # Parse verification time
         verified_dt = tz.localize(datetime.strptime(verified_dt_str, "%Y-%m-%d %H:%M:%S"))
         expiry_dt = verified_dt + timedelta(hours=12)
         now = datetime.now(tz)
         time_left = expiry_dt - now
 
-        # Format time outputs
+        # Format datetime values
         if USE_12_HOUR_FORMAT:
             verified_fmt = verified_dt.strftime("%d %b %Y, %I:%M:%S %p IST")
             expiry_fmt = expiry_dt.strftime("%d %b %Y, %I:%M:%S %p IST")
@@ -552,17 +544,18 @@ async def check_veri(client, message: Message):
                 f"🗓️ Last Verified On : `{verified_fmt}`\n"
                 f"❌ Expired At       : `{expiry_fmt}`", quote=True)
 
-        # Format remaining time as hours, minutes, seconds
+        # Format time left
         hrs, rem = divmod(int(time_left.total_seconds()), 3600)
         mins, secs = divmod(rem, 60)
         time_left_fmt = f"{hrs}h {mins}m {secs}s"
 
-        # Final verified message
+        # Success message
         await message.reply(
-            f"✅ **User is Verified**\n\n"
+            f"✅ **You're Verified**\n\n"
             f"🗓️ Verified On  : `{verified_fmt}`\n"
             f"⏳ Expires In   : `{time_left_fmt}`\n"
             f"📌 Expires At   : `{expiry_fmt}`", quote=True)
 
     except Exception as e:
-        await message.reply(f"❌ Error parsing verification data.\n\nDetails: `{e}`", quote=True)
+        await message.reply(f"❌ Error checking verification data.\n\nDetails: `{e}`", quote=True)
+        
