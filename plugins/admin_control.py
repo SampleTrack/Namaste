@@ -12,6 +12,7 @@ import asyncio
 from datetime import date, datetime, timedelta
 import pytz
 from Script import script
+from collections import defaultdict
 import logging, re, asyncio, time, shutil, psutil, os, sys
 
 logger = logging.getLogger(__name__)
@@ -560,13 +561,14 @@ async def check_veri(client, message: Message):
         await message.reply(f"❌ Error checking verification data.\n\nDetails: `{e}`", quote=True)
 
 
+# 📋 /veridata - Show all verified users
 @Client.on_message(filters.command("veridata") & filters.user(ADMINS))
 async def show_verified_users(client, message: Message):
     users_cursor = await db.get_all_users()
     verified_list = []
 
     async for user in users_cursor:
-        status = user.get("verification_status", None)
+        status = user.get("verification_status")
         if status and status.get("date") != "1999-12-31":
             user_id = user["id"]
             name = user.get("name", "Unknown")
@@ -577,12 +579,46 @@ async def show_verified_users(client, message: Message):
     if not verified_list:
         return await message.reply("😔 No verified users found.")
 
-    result_text = "**✅ Verified Users List:**\n\n" + "\n".join(verified_list)
+    header = f"**✅ Verified Users List: Total {len(verified_list)} users verified**\n\n"
+    result_text = header + "\n".join(verified_list)
 
-    # Handle if result is too long
     if len(result_text) > 4096:
         with open("verified_users.txt", "w", encoding="utf-8") as f:
-            f.write("\n".join(verified_list))
-        await message.reply_document("verified_users.txt")
+            f.write(result_text)
+        await message.reply_document("verified_users.txt", quote=True)
     else:
-        await message.reply(result_text)
+        await message.reply(result_text, quote=True)
+
+# 📅 /veridata_date - Show verified users grouped by date
+@Client.on_message(filters.command("veridata_date") & filters.user(ADMINS))
+async def show_verified_users_by_date(client, message: Message):
+    users_cursor = await db.get_all_users()
+    date_wise_data = defaultdict(list)
+
+    async for user in users_cursor:
+        status = user.get("verification_status")
+        if status and status.get("date") != "1999-12-31":
+            date = status["date"]
+            user_id = user["id"]
+            name = user.get("name", "Unknown")
+            time = status["time"]
+            date_wise_data[date].append(f"🆔 `{user_id}` - **{name}** 🕒 `{time}`")
+
+    if not date_wise_data:
+        return await message.reply("😔 No verified users found.")
+
+    output_lines = ["**📅 Verified Users Grouped by Date:**\n"]
+    for date in sorted(date_wise_data):
+        output_lines.append(f"📆 **{date}** - {len(date_wise_data[date])} users")
+        output_lines.extend(date_wise_data[date])
+        output_lines.append("")
+
+    final_text = "\n".join(output_lines)
+
+    if len(final_text) > 4096:
+        with open("verified_users_by_date.txt", "w", encoding="utf-8") as f:
+            f.write(final_text)
+        await message.reply_document("verified_users_by_date.txt", quote=True)
+    else:
+        await message.reply(final_text, quote=True)
+        
