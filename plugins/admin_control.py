@@ -22,7 +22,6 @@ logger.setLevel(logging.ERROR)
 # Configurations
 USE_12_HOUR_FORMAT = True             # Switch 12/24 hour format ON/OFF here
 
-admin_only = filters.command & filters.user(ADMINS)
 
 @Client.on_message(filters.new_chat_members & filters.group)
 async def save_group(bot, message):
@@ -623,7 +622,7 @@ async def show_verified_users_by_date(client, message: Message):
     else:
         await message.reply(final_text, quote=True)
         
-@Client.on_message(admin_only("banz"))
+@Client.on_message(filters.command("banz") & filters.user(ADMINS))
 async def ban_user_cmd(client, message: Message):
     try:
         args = message.text.split()
@@ -638,7 +637,7 @@ async def ban_user_cmd(client, message: Message):
     except Exception as e:
         await message.reply(f"❌ Error: {e}")
         
-@Client.on_message(admin_only("unbanz"))
+@Client.on_message(filters.command("unbanz") & filters.user(ADMINS))
 async def unban_user_cmd(client, message: Message):
     try:
         args = message.text.split()
@@ -650,8 +649,7 @@ async def unban_user_cmd(client, message: Message):
     except Exception as e:
         await message.reply(f"❌ Error: {e}")
         
-        
-@Client.on_message(admin_only("isban"))
+@Client.on_message(filters.command("isban") & filters.user(ADMINS))
 async def is_ban_cmd(client, message: Message):
     try:
         args = message.text.split()
@@ -666,8 +664,7 @@ async def is_ban_cmd(client, message: Message):
     except Exception as e:
         await message.reply(f"❌ Error: {e}")
         
-        
-@Client.on_message(admin_only("deluser"))
+@Client.on_message(filters.command("deluser") & filters.user(ADMINS))
 async def delete_user_cmd(client, message: Message):
     try:
         args = message.text.split()
@@ -679,8 +676,7 @@ async def delete_user_cmd(client, message: Message):
     except Exception as e:
         await message.reply(f"❌ Error: {e}")
         
-        
-@Client.on_message(admin_only("userscount"))
+@Client.on_message(filters.command("userscount") & filters.user(ADMINS))
 async def total_users_cmd(client, message: Message):
     try:
         count = await db.total_users_count()
@@ -688,8 +684,7 @@ async def total_users_cmd(client, message: Message):
     except Exception as e:
         await message.reply(f"❌ Error: {e}")
         
-        
-@Client.on_message(admin_only("getbanned"))
+@Client.on_message(filters.command("getbanned") & filters.user(ADMINS))
 async def get_banned_cmd(client, message: Message):
     try:
         users, chats = await db.get_banned()
@@ -697,8 +692,7 @@ async def get_banned_cmd(client, message: Message):
     except Exception as e:
         await message.reply(f"❌ Error: {e}")
         
-        
-@Client.on_message(admin_only("verify"))
+@Client.on_message(filters.command("verify") & filters.user(ADMINS))
 async def verify_user_cmd(client, message: Message):
     try:
         args = message.text.split()
@@ -711,8 +705,7 @@ async def verify_user_cmd(client, message: Message):
     except Exception as e:
         await message.reply(f"❌ Error: {e}")
         
-        
-@Client.on_message(admin_only("checkverii"))
+@Client.on_message(filters.command("checkverii") & filters.user(ADMINS))
 async def check_veri_cmd(client, message: Message):
     try:
         args = message.text.split()
@@ -724,8 +717,7 @@ async def check_veri_cmd(client, message: Message):
     except Exception as e:
         await message.reply(f"❌ Error: {e}")
         
-        
-@Client.on_message(admin_only("chatscount"))
+@Client.on_message(filters.command("chatscount") & filters.user(ADMINS))
 async def total_chats_cmd(client, message: Message):
     try:
         count = await db.total_chat_count()
@@ -733,8 +725,7 @@ async def total_chats_cmd(client, message: Message):
     except Exception as e:
         await message.reply(f"❌ Error: {e}")
         
-        
-@Client.on_message(admin_only("dbsize"))
+@Client.on_message(filters.command("dbsize") & filters.user(ADMINS))
 async def db_size_cmd(client, message: Message):
     try:
         size = await db.get_db_size()
@@ -742,8 +733,7 @@ async def db_size_cmd(client, message: Message):
     except Exception as e:
         await message.reply(f"❌ Error: {e}")
         
-        
-@Client.on_message(admin_only("disablechat"))
+@Client.on_message(filters.command("disablechat") & filters.user(ADMINS))
 async def disable_chat_cmd(client, message: Message):
     try:
         args = message.text.split(maxsplit=2)
@@ -757,7 +747,7 @@ async def disable_chat_cmd(client, message: Message):
         await message.reply(f"❌ Error: {e}")
         
         
-@Client.on_message(admin_only("delchat"))
+@Client.on_message(filters.command("delchat") & filters.user(ADMINS))
 async def delete_chat_cmd(client, message: Message):
     try:
         args = message.text.split()
@@ -769,8 +759,7 @@ async def delete_chat_cmd(client, message: Message):
     except Exception as e:
         await message.reply(f"❌ Error: {e}")
         
-        
-@Client.on_message(admin_only("saveinvite"))
+@Client.on_message(filters.command("saveinvite") & filters.user(ADMINS))
 async def save_invite_cmd(client, message: Message):
     try:
         args = message.text.split(maxsplit=2)
@@ -783,8 +772,7 @@ async def save_invite_cmd(client, message: Message):
     except Exception as e:
         await message.reply(f"❌ Error: {e}")
         
-        
-@Client.on_message(admin_only("invite"))
+@Client.on_message(filters.command("invite") & filters.user(ADMINS))
 async def get_invite_cmd(client, message: Message):
     try:
         args = message.text.split()
@@ -799,8 +787,8 @@ async def get_invite_cmd(client, message: Message):
     except Exception as e:
         await message.reply(f"❌ Error: {e}")
         
-        
-@Client.on_message(admin_only("settingz"))
+
+@Client.on_message(filters.command("settingz") & filters.user(ADMINS))
 async def get_settings_cmd(client, message: Message):
     try:
         args = message.text.split()
