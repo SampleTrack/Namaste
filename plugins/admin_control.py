@@ -3,7 +3,7 @@ from pyrogram.errors import ChatAdminRequired
 from pyrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 from pyrogram.errors.exceptions.bad_request_400 import MessageTooLong, PeerIdInvalid, UserNotParticipant, MediaEmpty, PhotoInvalidDimensions, WebpageMediaEmpty
 
-from info import ADMINS, LOG_CHANNEL, SUPPORT_CHAT, UPDATE_CHANNEL, WELCOM_PIC, WELCOM_TEXT, IMDB_TEMPLATE
+from info import ADMINS, LOG_CHANNEL, SUPPORT_CHAT, UPDATE_CHANNEL, IMDB_TEMPLATE
 from utils import get_size, temp, extract_user, get_file_id, get_poster, humanbytes, get_settings
 from database.users_chats_db import db
 from database.ia_filterdb import Media
