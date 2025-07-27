@@ -429,16 +429,39 @@ async def cb_handler(client: Client, query: CallbackQuery):
     elif query.data == "admin":
         buttons = [[
             InlineKeyboardButton('✘ Cʟᴏꜱᴇ', 'close_data'),
-            InlineKeyboardButton('« Bᴀᴄᴋ', 'help')           
+            InlineKeyboardButton('« Bᴀᴄᴋ', 'help')
         ]]
         if query.from_user.id not in ADMINS:
-            return await query.answer("Sᴏʀʀʏ Tʜɪs Mᴇɴᴜ Oɴʟʏ Fᴏʀ Mʏ Aᴅᴍɪɴs ⚒️", show_alert=True)
-        await query.message.edit("Pʀᴏᴄᴇꜱꜱɪɴɢ Wᴀɪᴛ Fᴏʀ 15 ꜱᴇᴄ...")
+            return await query.answer("⚒️ Oɴʟʏ Fᴏʀ Aᴅᴍɪɴꜱ", show_alert=True)
+
+        await query.message.edit("⏳ Pʀᴏᴄᴇꜱꜱɪɴɢ...")
+
         total, used, free = shutil.disk_usage(".")
-        uptime = UPTIME
-        stats = script.SERVER_STATS.format(get_time(time.time() - uptime), psutil.cpu_percent(), psutil.virtual_memory().percent, humanbytes(total), humanbytes(used), psutil.disk_usage('/').percent, humanbytes(free))            
-        stats_pic = await make_carbon(stats, True)
-        await query.edit_message_media(InputMediaPhoto(stats_pic, script.ADMIN_TXT, enums.ParseMode.HTML), reply_markup=InlineKeyboardMarkup(buttons))
+        uptime = time.time() - UPTIME
+        stats = script.SERVER_STATS.format(
+            get_time(uptime),
+            psutil.cpu_percent(),
+            psutil.virtual_memory().percent,
+            humanbytes(total),
+            humanbytes(used),
+            psutil.disk_usage('/').percent,
+            humanbytes(free)
+        )
+
+        stats_pic = await make_carbon(stats)
+
+        if not stats_pic:
+            return await query.message.edit("⚠️ Cᴏᴜʟᴅɴ'ᴛ Gᴇɴᴇʀᴀᴛᴇ Sᴛᴀᴛs.")
+
+        await query.edit_message_media(
+            media=InputMediaPhoto(
+                media=stats_pic,
+                caption=script.ADMIN_TXT,
+                parse_mode=enums.ParseMode.HTML
+            ),
+            reply_markup=InlineKeyboardMarkup(buttons)
+        )
+        stats_pic.close()
         
     elif query.data == "openfilter":
         buttons = [[
