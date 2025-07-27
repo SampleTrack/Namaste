@@ -377,6 +377,22 @@ Now enjoy the bot without any ads and access unlimited movies for the next 12 ho
 📋 Copy the link below and paste it into your Chrome browser. Complete the required task to enjoy 12 hours of uninterrupted and ad-free access! ✨🍿
 """
 
+    PREMIUM_TXT = """
+✨ <b>Premium Membership - Only ₹99</b> ✨
+
+💥 Get access to exclusive features:
+✅ Use Inline Search (Super Fast ⚡)
+✅ Ad-Free Experience 🧹
+✅ Priority Support 💬
+✅ Instant File Access 🔓
+
+🎁 <b>To Upgrade:</b>
+Send ₹99 via UPI to: <code>yourupi@upi</code>
+Then send payment screenshot to @YourSupportUsername
+
+We'll activate your premium within 5 minutes! 💖
+"""
+    
     RESTART_TXT = """\
 🔄 #Restarted
 
