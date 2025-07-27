@@ -47,7 +47,7 @@ async def answer(bot, query: InlineQuery):
         return
 
     # ✅ Step 3: Premium Mode check
-    if PREMIUM_MODE and not await check_verification(bot, message.from_user.id)
+    if PREMIUM_MODE and not await check_verification(bot, message.from_user.id):
         await query.answer(
             results=[],
             cache_time=0,
