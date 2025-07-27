@@ -1,48 +1,64 @@
 import logging
-from pyrogram import Client, emoji, filters
+from pyrogram import Client, filters, emoji
 from pyrogram.errors.exceptions.bad_request_400 import QueryIdInvalid
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, InlineQueryResultCachedDocument, InlineQuery
 from database.ia_filterdb import get_search_results
-from utils import is_subscribed, get_size, temp
-from info import CACHE_TIME, AUTH_USERS, AUTH_CHANNEL, CUSTOM_FILE_CAPTION
+from utils import is_subscribed, get_size, temp, check_verification
+from info import CACHE_TIME, AUTH_USERS, AUTH_CHANNEL, CUSTOM_FILE_CAPTION, PREMIUM_MODE
 
 logger = logging.getLogger(__name__)
 cache_time = 0 if AUTH_USERS or AUTH_CHANNEL else CACHE_TIME
 
-# ✅ Improved user authorization check
+
 async def inline_users(query: InlineQuery):
     user_id = query.from_user.id if query.from_user else None
 
     if user_id is None:
         return False
 
-    # ✅ If AUTH_USERS is defined, only they are allowed
     if AUTH_USERS:
         return user_id in AUTH_USERS
 
-    # ✅ Otherwise, allow everyone except banned users
     return user_id not in temp.BANNED_USERS
 
 
 @Client.on_inline_query()
 async def answer(bot, query: InlineQuery):
+    user_id = query.from_user.id
+
+    # ✅ Step 1: Check if user is banned
     if not await inline_users(query):
         await query.answer(
             results=[],
             cache_time=0,
-            switch_pm_text="💎 Premium Feature Only - ₹99",
-            switch_pm_parameter="premium",
+            switch_pm_text="⚠️ You are not allowed to use this bot.",
+            switch_pm_parameter="not_allowed"
         )
         return
-    
+
+    # ✅ Step 2: Check subscription
     if AUTH_CHANNEL and not await is_subscribed(bot, query):
-        await query.answer(results=[],
-                           cache_time=0,
-                           switch_pm_text='📢 You need to join the channel to use this bot.',
-                           switch_pm_parameter="subscribe")
+        await query.answer(
+            results=[],
+            cache_time=0,
+            switch_pm_text='📢 Join our channel to use this bot.',
+            switch_pm_parameter="subscribe"
+        )
         return
 
+    # ✅ Step 3: Premium Mode check
+    if PREMIUM_MODE and not await check_verification(bot, message.from_user.id)
+        await query.answer(
+            results=[],
+            cache_time=0,
+            switch_pm_text="💎 Premium Only - ₹99\nTap to Buy Premium",
+            switch_pm_parameter="premium"
+        )
+        return
+
+    # ✅ Continue to search
     results = []
+
     if '|' in query.query:
         string, file_type = query.query.split('|', maxsplit=1)
         string = string.strip()
@@ -61,7 +77,7 @@ async def answer(bot, query: InlineQuery):
         size = get_size(file.file_size)
         f_caption = file.caption
 
-        # ✅ Custom caption handling
+        # ✅ Custom caption logic
         if CUSTOM_FILE_CAPTION:
             try:
                 f_caption = CUSTOM_FILE_CAPTION.format(
@@ -71,7 +87,7 @@ async def answer(bot, query: InlineQuery):
                     file_caption=f_caption or ''
                 )
             except Exception as e:
-                logger.exception("Error formatting custom caption")
+                logger.exception("Custom caption error")
                 f_caption = f_caption or title
 
         if f_caption is None:
@@ -103,7 +119,7 @@ async def answer(bot, query: InlineQuery):
         except QueryIdInvalid:
             pass
         except Exception as e:
-            logger.exception("Error answering inline query")
+            logger.exception("Inline answer error")
     else:
         switch_pm_text = f'{emoji.CROSS_MARK} No Results'
         if string:
@@ -118,6 +134,5 @@ async def answer(bot, query: InlineQuery):
 
 
 def get_reply_markup(query):
-    buttons = [[InlineKeyboardButton('⟳ ꜱᴇᴀʀᴄʜ ᴀɢᴀɪɴ', switch_inline_query_current_chat=query)]]
+    buttons = [[InlineKeyboardButton('⟳ 𝗦𝗲𝗮𝗿𝗰𝗵 𝗔𝗴𝗮𝗶𝗻', switch_inline_query_current_chat=query)]]
     return InlineKeyboardMarkup(buttons)
-    
