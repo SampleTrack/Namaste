@@ -1,4 +1,4 @@
-class Script(object):
+class script(object):
     START_TXT = """\
 <b>👋 Hello {},
 
