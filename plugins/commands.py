@@ -204,8 +204,8 @@ async def start(client, message):
 
     if message.text == "/start premium":
         buttons = [
-            [InlineKeyboardButton("✅ Verify Premium", url="https://t.me/YourSupportUsername")],
-            [InlineKeyboardButton("💬 Contact Support", url="https://t.me/YourSupportUsername")]
+            [InlineKeyboardButton("✅ Verify Premium", url="https://t.me/MyselfPrincess")],
+            [InlineKeyboardButton("💬 Contact Support", url="https://t.me/MyselfPrincess")]
         ]
         await message.reply_text(
             text=script.PREMIUM_TXT,
