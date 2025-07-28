@@ -16,6 +16,12 @@ from collections import defaultdict
 import logging, re, asyncio, time, shutil, psutil, os, sys
 from pyrogram.types import InputFile
 import io
+import os
+import io
+from pyrogram import Client, filters
+from pyrogram.types import InputFile
+from info import ADMINS
+
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
@@ -24,15 +30,19 @@ logger.setLevel(logging.ERROR)
 # Configurations
 USE_12_HOUR_FORMAT = True             # Switch 12/24 hour format ON/OFF here
 
+
+
+
+
 def extract_commands_from_file(file_path):
     commands = []
     with open(file_path, "r", encoding="utf-8") as f:
         lines = f.readlines()
         for line in lines:
-            # Looks for typical command patterns in Pyrogram-based bots
             if "filters.command" in line:
                 commands.append(line.strip())
     return commands
+
 
 def list_commands_in_project(directory):
     all_commands = {}
@@ -44,6 +54,7 @@ def list_commands_in_project(directory):
                 if commands:
                     all_commands[file_path] = commands
     return all_commands
+
     
 @Client.on_message(filters.new_chat_members & filters.group)
 async def save_group(bot, message):
