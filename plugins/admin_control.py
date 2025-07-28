@@ -14,6 +14,8 @@ import pytz
 from Script import script
 from collections import defaultdict
 import logging, re, asyncio, time, shutil, psutil, os, sys
+from pyrogram.types import InputFile
+import io
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
@@ -824,16 +826,21 @@ async def get_settings_cmd(client, message: Message):
         await message.reply(f"❌ Error: {e}")
         
         
+
+
 @Client.on_message(filters.command("listallcommands") & filters.user(ADMINS))
 async def list_all_commands(client, message):
-    commands_summary = ""
     commands_dict = list_commands_in_project(".")
+    text = ""
+
     for filename, command_lines in commands_dict.items():
-        commands_summary += f"\n<b>{filename}:</b>\n"
+        text += f"\n{filename}:\n"
         for cmd in command_lines:
-            commands_summary += f" • {cmd}\n"
-    if commands_summary:
-        await message.reply(commands_summary)
+            text += f" • {cmd}\n"
+
+    if text:
+        file = io.BytesIO(text.encode("utf-8"))
+        file.name = "all_commands.txt"
+        await message.reply_document(document=InputFile(file), caption="📄 All Bot Commands List")
     else:
         await message.reply("No commands found in the project.")
-
