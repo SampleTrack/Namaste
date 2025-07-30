@@ -835,18 +835,25 @@ async def get_settings_cmd(client, message: Message):
         
 @Client.on_message(filters.command("listallcommands") & filters.user(ADMINS))
 async def list_all_commands(client, message):
-    commands_dict = list_commands_in_project(".")
-    text = ""
+    try:
+        commands_dict = list_commands_in_project(".")
+        if not commands_dict:
+            await message.reply("No commands found in the project.")
+            return
 
-    for filename, command_lines in commands_dict.items():
-        text += f"\n{filename}:\n"
-        for cmd in command_lines:
-            text += f" • {cmd}\n"
+        output_lines = []
 
-    if text:
-        file = io.BytesIO(text.encode("utf-8"))
-        file.name = "all_bot_commands.txt"
-        await message.reply_document(document=file, caption="📄 Here's the list of all bot commands!")
-    else:
-        await message.reply("No commands found in the project.")
-        
+        for filename, command_lines in commands_dict.items():
+            output_lines.append(f"\n📁 {filename}:")
+            for cmd in command_lines:
+                output_lines.append(f" • {cmd}")
+
+        output_text = "\n".join(output_lines)
+
+        # Save as text file
+        with io.BytesIO(output_text.encode("utf-8")) as file:
+            file.name = "all_bot_commands.txt"
+            await message.reply_document(document=file, caption="📄 Here's the list of all bot commands!")
+
+    except Exception as e:
+        await message.reply(f"⚠️ Error: {e}")
