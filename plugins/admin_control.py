@@ -12,7 +12,6 @@ import asyncio
 from datetime import date, datetime, timedelta
 import pytz
 from Script import script
-from collections import defaultdictì
 import logging, re, asyncio, time, shutil, psutil, os, sys
 import io
 import os
