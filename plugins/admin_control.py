@@ -15,7 +15,7 @@ from Script import script
 import logging, re, asyncio, time, shutil, psutil, os, sys
 import io
 import os
-import io
+import ast
 from pyrogram import Client, filters
 from info import ADMINS
 
