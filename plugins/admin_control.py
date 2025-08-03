@@ -892,10 +892,13 @@ async def list_all_commands(client, message):
     except Exception as e:
         await message.reply(f"⚠️ Error: {e}")
         
+
 @Client.on_message(filters.command("uptime") & filters.private)
 async def get_uptime(client, message):
-    now = datetime.now(pytz.timezone("Asia/Kolkata"))
-    diff = now - UPTIME
+    tz = pytz.timezone("Asia/Kolkata")
+    now = datetime.now(tz)
+    uptime_dt = datetime.fromtimestamp(UPTIME, tz=tz)
+    diff = now - uptime_dt
 
     days, seconds = diff.days, diff.seconds
     hours = seconds // 3600
@@ -915,3 +918,4 @@ async def get_uptime(client, message):
         f"🤖 <b>Bot Uptime:</b>\n⏱️ <code>{uptime_str}</code>",
         quote=True
     )
+    
