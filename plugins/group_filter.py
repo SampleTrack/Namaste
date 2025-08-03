@@ -386,45 +386,110 @@ async def auto_filter(client, msg, txt, spoll=False):
 
 
 async def advantage_spell_chok(msg, text):
-    query = re.sub(r"\b(pl(i|e)*?(s|z+|ease|se|ese|(e+)s(e)?)|((send|snd|giv(e)?|gib)(\sme)?)|movie(s)?|new|latest|br((o|u)h?)*|^h(e|a)?(l)*(o)*|mal(ayalam)?|t(h)?amil|file|that|find|und(o)*|kit(t(i|y)?)?o(w)?|thar(u)?(o)*w?|kittum(o)*|aya(k)*(um(o)*)?|full\smovie|any(one)|with\ssubtitle(s)?)","", msg.text, flags=re.IGNORECASE)  # plis contribute some common words
+    # Remove common filler words and sanitize user query
+    query = re.sub(
+        r"\b(pl(i|e)*?(s|z+|ease|se|ese|(e+)s(e)?)|"
+        r"((send|snd|giv(e)?|gib)(\sme)?)|movie(s)?|new|latest|br((o|u)h?)*|"
+        r"^h(e|a)?(l)*(o)*|mal(ayalam)?|t(h)?amil|file|that|find|und(o)*|"
+        r"kit(t(i|y)?)?o(w)?|thar(u)?(o)*w?|kittum(o)*|aya(k)*(um(o)*)?|"
+        r"full\smovie|any(one)|with\ssubtitle(s)?)",
+        "", msg.text, flags=re.IGNORECASE
+    )
+
     query = query.strip() + " movie"
+
+    # Search both cleaned query and original text
     g_s = await search_gagala(query)
     g_s += await search_gagala(msg.text)
-    gs_parsed = []
+
     if not g_s:
-        k = await text.edit_text("I Cᴏᴜʟᴅɴ'ᴛ Fɪɴᴅ Aɴʏ Mᴏᴠɪᴇ Iɴ Tʜᴀᴛ Nᴀᴍᴇ")
+        k = await text.edit_text("I Cᴏᴜʟᴅɴ'ᴛ Fɪɴᴅ Aɴʏ Mᴏᴠɪᴇ Iɴ Tʜᴀᴛ Nᴀᴍᴇ.")
         await asyncio.sleep(8)
         return await k.delete()
-    regex = re.compile(r".*(imdb|wikipedia).*", re.IGNORECASE)  # look for imdb / wiki results
+
+    # Filter IMDb/Wikipedia URLs
+    regex = re.compile(r".*(imdb|wikipedia).*", re.IGNORECASE)
     gs = list(filter(regex.match, g_s))
-    gs_parsed = [re.sub(r'\b(\-([a-zA-Z-\s])\-\simdb|(\-\s)?imdb|(\-\s)?wikipedia|\(|\)|\-|reviews|full|all|episode(s)?|film|movie|series)', '', i, flags=re.IGNORECASE) for i in gs]
+
+    # Clean up movie names
+    gs_parsed = [
+        re.sub(
+            r'\b(\-([a-zA-Z-\s])\-\simdb|(\-\s)?imdb|(\-\s)?wikipedia|\(|\)|\-|'
+            r'reviews|full|all|episode(s)?|film|movie|series)',
+            '',
+            i,
+            flags=re.IGNORECASE
+        ) for i in gs
+    ]
+
+    # Fallback match if IMDb/Wiki fail
     if not gs_parsed:
-        reg = re.compile(r"watch(\s[a-zA-Z0-9_\s\-\(\)]*)*\|.*", re.IGNORECASE)  # match something like Watch Niram | Amazon Prime
+        reg = re.compile(r"watch(\s[a-zA-Z0-9_\s\-\(\)]*)*\|.*", re.IGNORECASE)
         for mv in g_s:
             match = reg.match(mv)
             if match:
                 gs_parsed.append(match.group(1))
+
     user = msg.from_user.id if msg.from_user else 0
     movielist = []
-    gs_parsed = list(dict.fromkeys(gs_parsed))  # removing duplicates https://stackoverflow.com/a/7961425
+
+    # Remove duplicate entries
+    gs_parsed = list(dict.fromkeys(gs_parsed))
     if len(gs_parsed) > 3:
         gs_parsed = gs_parsed[:3]
+
+    # Search on IMDb and collect titles
     if gs_parsed:
         for mov in gs_parsed:
-            imdb_s = await get_poster(mov.strip(), bulk=True)  # searching each keyword in imdb
+            imdb_s = await get_poster(mov.strip(), bulk=True)
             if imdb_s:
                 movielist += [movie.get('title') for movie in imdb_s]
-    movielist += [(re.sub(r'(\-|\(|\)|_)', '', i, flags=re.IGNORECASE)).strip() for i in gs_parsed]
-    movielist = list(dict.fromkeys(movielist))  # removing duplicates
+
+    # Add fallback titles
+    movielist += [
+        (re.sub(r'(\-|\(|\)|_)', '', i, flags=re.IGNORECASE)).strip()
+        for i in gs_parsed
+    ]
+
+    # Final deduplication
+    movielist = list(dict.fromkeys(movielist))
+
     if not movielist:
-        k = await text.edit_text("I Cᴏᴜʟᴅɴ'ᴛ Fɪɴᴅ Aɴʏᴛʜɪɴɢ Rᴇʟᴀᴛᴇᴅ Tᴏ Tʜᴀᴛ. Cʜᴇᴄᴋ Yᴏᴜʀ Sᴘᴇʟʟɪɴɢ")
+        k = await text.edit_text(
+            "I Cᴏᴜʟᴅɴ'ᴛ Fɪɴᴅ Aɴʏᴛʜɪɴɢ Rᴇʟᴀᴛᴇᴅ Tᴏ Tʜᴀᴛ. Pʟᴇᴀsᴇ Cʜᴇᴄᴋ Tʜᴇ Sᴘᴇʟʟɪɴɢ."
+        )
         await asyncio.sleep(8)
         return await k.delete()
-    temp.GP_SPELL[msg.id] = movielist
-    btn = [[InlineKeyboardButton(text=movie.strip(), callback_data=f"spolling#{user}#{k}",)] for k, movie in enumerate(movielist)]
-    btn.append([InlineKeyboardButton(text="Close", callback_data=f'spolling#{user}#close_spellcheck')])
-    await text.edit_text("I Cᴏᴜʟᴅɴ'ᴛ Fɪɴᴅ Aɴʏᴛʜɪɴɢ Rᴇʟᴀᴛᴇᴅ Tᴏ Tʜᴀᴛ. Dɪᴅ Yᴏᴜ Mᴇᴀɴ Aɴʏ Oɴᴇ Oғ Tʜᴇsᴇ?", reply_markup=InlineKeyboardMarkup(btn))
 
+    # Store movie list temporarily
+    temp.GP_SPELL[msg.id] = movielist
+
+    # Create buttons
+    btn = [
+        [InlineKeyboardButton(text=movie.strip(), callback_data=f"spolling#{user}#{k}")]
+        for k, movie in enumerate(movielist)
+    ]
+    btn.append([
+        InlineKeyboardButton(text="❌ Close", callback_data=f"spolling#{user}#close_spellcheck")
+    ])
+
+    # Suggest corrected titles
+    await text.edit_text(
+        "I Cᴏᴜʟᴅɴ'ᴛ Fɪɴᴅ Aɴʏᴛʜɪɴɢ Rᴇʟᴀᴛᴇᴅ Tᴏ Tʜᴀᴛ.\n"
+        "Dɪᴅ Yᴏᴜ Mᴇᴀɴ Aɴʏ Oɴᴇ Oғ Tʜᴇsᴇ?",
+        reply_markup=InlineKeyboardMarkup(btn)
+    )
+
+    # 🕒 Auto-delete after 10 seconds
+    await asyncio.sleep(10)
+    try:
+        await text.delete()
+    except Exception as e:
+        print(f"[Delete Error] Failed to delete bot message: {e}")
+    try:
+        await msg.delete()
+    except Exception as e:
+        print(f"[Delete Error] Failed to delete user message: {e}")
 
 async def manual_filters(client, message, text=False):
     group_id = message.chat.id
