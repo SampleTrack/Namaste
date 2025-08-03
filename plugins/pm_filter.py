@@ -89,23 +89,42 @@ async def pm_next_page(bot, query):
 @Client.on_callback_query(filters.create(lambda _, __, query: query.data.startswith("pmspolling")))
 async def pm_spoll_tester(bot, query):
     _, text, user, movie_ = query.data.split('#')
+
+    # Close button pressed
     if movie_ == "close_spellcheck":
-        return await query.message.delete()
-        await text.message.delete()
-    movies = temp.PM_SPELL.get(str(text.message.reply_to_message.id))
+        try:
+            await query.message.delete()
+            if query.message.reply_to_message:
+                await query.message.reply_to_message.delete()
+        except Exception:
+            pass
+        return
+
+    # Get movie suggestions from temp storage
+    reply_msg = query.message.reply_to_message
+    if not reply_msg:
+        return await query.answer("Oʀɪɢɪɴᴀʟ Rᴇǫᴜᴇsᴛ Nᴏᴛ Fᴏᴜɴᴅ!", show_alert=True)
+
+    movies = temp.PM_SPELL.get(str(reply_msg.id))
     if not movies:
-        return await text.answer("Yᴏᴜ Aʀᴇ Usɪɴɢ Oɴᴇ Oғ Mʏ Oʟᴅ Mᴇssᴀɢᴇs, Pʟᴇᴀsᴇ Sᴇɴᴅ Tʜᴇ Rᴇǫᴜᴇsᴛ Aɢᴀɪɴ", show_alert=True)
-    movie = movies[(int(movie_))]
-    await text.answer('Cʜᴇᴄᴋɪɴɢ Fᴏʀ Mᴏᴠɪᴇ Iɴ Dᴀᴛᴀʙᴀsᴇ...')
+        return await query.answer("Yᴏᴜ Aʀᴇ Usɪɴɢ Oɴᴇ Oғ Mʏ Oʟᴅ Mᴇssᴀɢᴇs. Pʟᴇᴀsᴇ Sᴇɴᴅ Tʜᴇ Rᴇǫᴜᴇsᴛ Aɢᴀɪɴ.", show_alert=True)
+
+    movie = movies[int(movie_)]
+    await query.answer('Cʜᴇᴄᴋɪɴɢ Fᴏʀ Mᴏᴠɪᴇ Iɴ Dᴀᴛᴀʙᴀsᴇ...')
+
     files, offset, total_results = await get_search_results(movie, offset=0, filter=True)
+
     if files:
         k = (movie, files, offset, total_results)
         await pm_AutoFilter(bot, query, text, k)
     else:
-        k = await text.message.edit('Tʜɪs Mᴏᴠɪᴇ Nᴏᴛ Fᴏᴜɴᴅ Iɴ Dᴀᴛᴀʙᴀsᴇ')
-        await asyncio.sleep(10)
-        await k.delete()
-        
+        try:
+            not_found_msg = await query.message.edit('Tʜɪs Mᴏᴠɪᴇ Nᴏᴛ Fᴏᴜɴᴅ Iɴ Dᴀᴛᴀʙᴀsᴇ')
+            await asyncio.sleep(10)
+            await not_found_msg.delete()
+            await reply_msg.delete()
+        except Exception:
+            pass
 
 
 async def pm_AutoFilter(client, msg, txt, pmspoll=False):    
