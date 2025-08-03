@@ -242,9 +242,13 @@ async def auto_filter(client, msg, txt, spoll=False):
         message = msg
         wait_msg = txt
         settings = await get_settings(message.chat.id)
-        if message.text.startswith("/"): return  # ignore commands
-        if re.findall("((^\/|^,|^!|^\.|^[\U0001F600-\U000E007F]).*)", message.text):
+
+        if message.text.startswith("/"):
+            return  # ignore commands
+
+        if re.findall(r"((^\/|^,|^!|^\.|^[\U0001F600-\U000E007F]).*)", message.text):
             return
+
         if 2 < len(message.text) < 100:
             search = message.text
             files, offset, total_results = await get_search_results(search.lower(), offset=0, filter=True)
@@ -257,102 +261,128 @@ async def auto_filter(client, msg, txt, spoll=False):
             return
     else:
         settings = await get_settings(msg.message.chat.id)
-        message = txt.message.reply_to_message  # msg will be callback query
+        message = txt.message.reply_to_message
         search, files, offset, total_results = spoll
+
     pre = 'filep' if settings['file_secure'] else 'file'
     req = message.from_user.id if message.from_user else 0
 
-    if SHORT_URL and SHORT_API:          
+    # Generate buttons
+    if SHORT_URL and SHORT_API:
         if settings["button"]:
-            btn = [[InlineKeyboardButton(text=f"[{get_size(file.file_size)}] {file.file_name}", url=await get_shortlink(f"https://telegram.dog/{temp.U_NAME}?start=pre_{file.file_id}"))] for file in files ]
+            btn = [[
+                InlineKeyboardButton(text=f"[{get_size(file.file_size)}] {file.file_name}",
+                                     url=await get_shortlink(f"https://telegram.dog/{temp.U_NAME}?start=pre_{file.file_id}"))
+            ] for file in files]
         else:
-            btn = [[InlineKeyboardButton(text=f"{file.file_name}", url=await get_shortlink(f"https://telegram.dog/{temp.U_NAME}?start=pre_{file.file_id}")),
-                    InlineKeyboardButton(text=f"{get_size(file.file_size)}", url=await get_shortlink(f"https://telegram.dog/{temp.U_NAME}?start=pre_{file.file_id}"))] for file in files ]
-    else:        
+            btn = [[
+                InlineKeyboardButton(text=f"{file.file_name}",
+                                     url=await get_shortlink(f"https://telegram.dog/{temp.U_NAME}?start=pre_{file.file_id}")),
+                InlineKeyboardButton(text=f"{get_size(file.file_size)}",
+                                     url=await get_shortlink(f"https://telegram.dog/{temp.U_NAME}?start=pre_{file.file_id}"))
+            ] for file in files]
+    else:
         if settings["button"]:
-            btn = [[InlineKeyboardButton(text=f"[{get_size(file.file_size)}] {file.file_name}", callback_data=f'{pre}#{req}#{file.file_id}')] for file in files ]
+            btn = [[
+                InlineKeyboardButton(text=f"[{get_size(file.file_size)}] {file.file_name}",
+                                     callback_data=f'{pre}#{req}#{file.file_id}')
+            ] for file in files]
         else:
-            btn = [[InlineKeyboardButton(text=f"{file.file_name}", callback_data=f'{pre}#{req}#{file.file_id}'),
-                    InlineKeyboardButton(text=f"{get_size(file.file_size)}", callback_data=f'{pre}#{req}#{file.file_id}')] for file in files ] 
+            btn = [[
+                InlineKeyboardButton(text=f"{file.file_name}",
+                                     callback_data=f'{pre}#{req}#{file.file_id}'),
+                InlineKeyboardButton(text=f"{get_size(file.file_size)}",
+                                     callback_data=f'{pre}#{req}#{file.file_id}')
+            ] for file in files]
 
+    # Add pagination or single page info
     btn.insert(0, [InlineKeyboardButton("🔗 ʜᴏᴡ ᴛᴏ ᴅᴏᴡɴʟᴏᴀᴅ 🔗", "howdl")])
     if offset != "":
         key = f"{message.chat.id}-{message.id}"
         temp.GP_BUTTONS[key] = search
-        req = message.from_user.id if message.from_user else 0
-        btn.append(
-            [InlineKeyboardButton(text=f"❄️ ᴩᴀɢᴇꜱ 1/{math.ceil(int(total_results) / 6)}", callback_data="pages"),
-             InlineKeyboardButton(text="➡️ ɴᴇxᴛ", callback_data=f"next_{req}_{key}_{offset}")]
-        )
+        btn.append([
+            InlineKeyboardButton(text=f"❄️ ᴩᴀɢᴇꜱ 1/{math.ceil(int(total_results) / 6)}", callback_data="pages"),
+            InlineKeyboardButton(text="➡️ ɴᴇxᴛ", callback_data=f"next_{req}_{key}_{offset}")
+        ])
     else:
-        btn.append(
-            [InlineKeyboardButton(text="❄️ ᴩᴀɢᴇꜱ 1/1", callback_data="pages")]
-        )
-    
+        btn.append([
+            InlineKeyboardButton(text="❄️ ᴩᴀɢᴇꜱ 1/1", callback_data="pages")
+        ])
+
     imdb = await get_poster(search, file=(files[0]).file_name) if settings["imdb"] else None
     TEMPLATE = settings['template']
+
     if imdb:
-        cap = TEMPLATE.format(
-            group = message.chat.title,
-            requested = message.from_user.mention,
-            query = search,
-            title = imdb['title'],
-            votes = imdb['votes'],
-            aka = imdb["aka"],
-            seasons = imdb["seasons"],
-            box_office = imdb['box_office'],
-            localized_title = imdb['localized_title'],
-            kind = imdb['kind'],
-            imdb_id = imdb["imdb_id"],
-            cast = imdb["cast"],
-            runtime = imdb["runtime"],
-            countries = imdb["countries"],
-            certificates = imdb["certificates"],
-            languages = imdb["languages"],
-            director = imdb["director"],
-            writer = imdb["writer"],
-            producer = imdb["producer"],
-            composer = imdb["composer"],
-            cinematographer = imdb["cinematographer"],
-            music_team = imdb["music_team"],
-            distributors = imdb["distributors"],
-            release_date = imdb['release_date'],
-            year = imdb['year'],
-            genres = imdb['genres'],
-            poster = imdb['poster'],
-            plot = imdb['plot'],
-            rating = imdb['rating'],
-            url = imdb['url'],
-            **locals()
-        )
+        try:
+            cap = TEMPLATE.format(
+                group=message.chat.title,
+                requested=message.from_user.mention,
+                query=search,
+                title=imdb['title'],
+                votes=imdb['votes'],
+                aka=imdb["aka"],
+                seasons=imdb["seasons"],
+                box_office=imdb['box_office'],
+                localized_title=imdb['localized_title'],
+                kind=imdb['kind'],
+                imdb_id=imdb["imdb_id"],
+                cast=imdb["cast"],
+                runtime=imdb["runtime"],
+                countries=imdb["countries"],
+                certificates=imdb["certificates"],
+                languages=imdb["languages"],
+                director=imdb["director"],
+                writer=imdb["writer"],
+                producer=imdb["producer"],
+                composer=imdb["composer"],
+                cinematographer=imdb["cinematographer"],
+                music_team=imdb["music_team"],
+                distributors=imdb["distributors"],
+                release_date=imdb['release_date'],
+                year=imdb['year'],
+                genres=imdb['genres'],
+                poster=imdb['poster'],
+                plot=imdb['plot'],
+                rating=imdb['rating'],
+                url=imdb['url'],
+                **locals()
+            )
+        except Exception:
+            cap = f"Hᴇʀᴇ Is Wʜᴀᴛ I Fᴏᴜɴᴅ Fᴏʀ Yᴏᴜʀ Qᴜᴇʀʏ {search}"
     else:
         cap = f"Hᴇʀᴇ Is Wʜᴀᴛ I Fᴏᴜɴᴅ Fᴏʀ Yᴏᴜʀ Qᴜᴇʀʏ {search}"
-    if imdb and imdb.get('poster'):
-        try:
-            hehe = await message.reply_photo(photo=imdb.get('poster'), caption=cap, reply_markup=InlineKeyboardMarkup(btn))
-            await asyncio.sleep(IMDB_DELET_TIME)
-            await hehe.delete() 
-            await message.delete()
-        except (MediaEmpty, PhotoInvalidDimensions, WebpageMediaEmpty):
-            pic = imdb.get('poster')
-            poster = pic.replace('.jpg', "._V1_UX360.jpg")
-            hmm = await message.reply_photo(photo=poster, caption=cap, reply_markup=InlineKeyboardMarkup(btn))           
-            await asyncio.sleep(IMDB_DELET_TIME)
-            await hmm.delete() 
-            await message.delete()
-        except Exception as e:
-            logger.exception(e)
-            cdb = await wait_msg.edit_text(cap, reply_markup=InlineKeyboardMarkup(btn))
-            await asyncio.sleep(IMDB_DELET_TIME)
-            await cdb.delete()
-            await message.delete()
-    else:
-        crl = await wait_msg.edit_text(cap, reply_markup=InlineKeyboardMarkup(btn))
+
+    # Send result (image or text) and auto-delete
+    try:
+        if imdb and imdb.get('poster'):
+            try:
+                res = await message.reply_photo(photo=imdb['poster'], caption=cap, reply_markup=InlineKeyboardMarkup(btn))
+            except (MediaEmpty, PhotoInvalidDimensions, WebpageMediaEmpty):
+                poster = imdb['poster'].replace('.jpg', '._V1_UX360.jpg')
+                res = await message.reply_photo(photo=poster, caption=cap, reply_markup=InlineKeyboardMarkup(btn))
+        else:
+            res = await wait_msg.edit_text(cap, reply_markup=InlineKeyboardMarkup(btn))
+
         await asyncio.sleep(IMDB_DELET_TIME)
-        await crl.delete()   
+        await res.delete()
         await message.delete()
+
+    except Exception as e:
+        logger.exception(e)
+        try:
+            fallback = await wait_msg.edit_text(cap, reply_markup=InlineKeyboardMarkup(btn))
+            await asyncio.sleep(IMDB_DELET_TIME)
+            await fallback.delete()
+            await message.delete()
+        except Exception:
+            pass
+
+    # Clean up callback message if it's a spoll suggestion
     if spoll:
-        await msg.message.delete()
+        try:
+            await msg.message.delete()
+        except Exception:
+            pass
 
 
 async def advantage_spell_chok(msg, text):
