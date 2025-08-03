@@ -30,7 +30,19 @@ def extract_commands_from_file(file_path):
         lines = f.readlines()
         for line in lines:
             if "filters.command" in line:
-                commands.append(line.strip())
+                cmd_match = re.search(r"filters\.command\((.*?)\)", line)
+                if cmd_match:
+                    raw_cmds = cmd_match.group(1)
+                    try:
+                        # Convert string like "['filter', 'add']" to actual list
+                        cmd_list = eval(raw_cmds, {"__builtins__": {}})
+                    except:
+                        cmd_list = [raw_cmds.strip("'\"")]
+                    if not isinstance(cmd_list, list):
+                        cmd_list = [cmd_list]
+
+                    is_admin = "filters.user(ADMINS)" in line or "filters.user(ADMINS)" in line.replace(" ", "")
+                    commands.append((cmd_list, is_admin))
     return commands
 
 
@@ -837,17 +849,20 @@ async def list_all_commands(client, message):
 
         output_lines = []
 
-        for filename, command_lines in commands_dict.items():
+        for filename, command_entries in commands_dict.items():
             output_lines.append(f"\n📁 {filename}:")
-            for cmd in command_lines:
-                output_lines.append(f" • {cmd}")
+            for cmd_list, is_admin in command_entries:
+                tag = "👮‍♂️ (Admin)" if is_admin else ""
+                cmds_str = ", ".join([f"/{cmd}" for cmd in cmd_list])
+                output_lines.append(f" • {cmds_str} {tag}".strip())
 
         output_text = "\n".join(output_lines)
 
         # Save as text file
         with io.BytesIO(output_text.encode("utf-8")) as file:
             file.name = "all_bot_commands.txt"
-            await message.reply_document(document=file, caption="📄 Here's the list of all bot commands!")
+            await message.reply_document(document=file, caption="📄 Here's the cleaned list of all bot commands!")
 
     except Exception as e:
         await message.reply(f"⚠️ Error: {e}")
+        
