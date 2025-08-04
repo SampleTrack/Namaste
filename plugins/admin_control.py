@@ -275,7 +275,7 @@ async def get_ststs(bot, message):
     await rju.edit(script.STATUS_TXT.format(files, total_users, totl_chats, size, free))
 
 @Client.on_message(filters.command("dbsize"))
-async def db_size_handler(client, message):
+async def db_size(client, message):
     stats = db.command("dbstats")
     storage_size = stats.get("storageSize", 0)
     data_size = stats.get("dataSize", 0)
@@ -773,14 +773,6 @@ async def total_chats_cmd(client, message: Message):
     try:
         count = await db.total_chat_count()
         await message.reply(f"💬 Total groups in DB: {count}")
-    except Exception as e:
-        await message.reply(f"❌ Error: {e}")
-        
-@Client.on_message(filters.command("dbsize") & filters.user(ADMINS))
-async def db_size_cmd(client, message: Message):
-    try:
-        size = await db.get_db_size()
-        await message.reply(f"🗃️ DB Size: {round(size / 1024, 2)} KB")
     except Exception as e:
         await message.reply(f"❌ Error: {e}")
         
