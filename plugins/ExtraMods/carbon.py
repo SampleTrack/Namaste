@@ -1,5 +1,4 @@
-from pyrogram import Client, filters, enums
-from pyrogram.types import *
+.types import *
 from aiohttp import ClientSession
 from io import BytesIO
 import psutil, shutil, time
