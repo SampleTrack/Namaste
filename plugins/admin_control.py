@@ -242,7 +242,7 @@ async def get_ststs(bot, message):
 
 @Client.on_message(filters.command("dbsize"))
 async def db_size(client, message):
-    stats = db.command("dbstats")
+    stats = db.get_db_size("dbstats")
     storage_size = stats.get("storageSize", 0)
     data_size = stats.get("dataSize", 0)
     total_size_mb = (storage_size + data_size) / (1024 * 1024)
