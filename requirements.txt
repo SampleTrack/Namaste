@@ -1,36 +1,42 @@
+# 🔧 Core Libraries
 pyrogram==2.0.106
 tgcrypto
+python-dotenv<=0.20.0
+requests
+ujson
+wheel
+wget
+
+# 🗃️ Database & ORM
 pymongo[srv]==3.12.3
 motor==2.5.1
 marshmallow==3.14.1
 umongo==3.0.1
-requests
-bs4
-imdbpy==2022.7.9
 dnspython
-pynewtonmath
-python-dotenv<=0.20.0
-gunicorn==20.1.0
-Flask==2.2.2
 
-datetime
+# 🌐 Web & API
+Flask==2.2.2
+gunicorn==20.1.0
 aiohttp
-aiofiles 
-dnspython
-youtube-search-python
-youtube-search
-yt-dlp
-cinemagoer
-opencv-python-headless
-googletrans
+aiofiles
 telegraph
-python-dotenv
+
+# 🎥 Movie & Media Data
+imdbpy==2022.7.9
+cinemagoer
+youtube-search
+youtube-search-python
+yt-dlp
+
+# 🧠 AI, Math & Translation
+pynewtonmath
+googletrans
 gTTS
+
+# 🖼️ Image, Audio & System Utilities
+opencv-python-headless
 Pillow
 psutil
-NumPy
-wheel
-ujson
-wget
-pytz
-pip
+
+# 🌿 Scraping & Parsing
+beautifulsoup4
