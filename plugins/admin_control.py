@@ -274,7 +274,20 @@ async def get_ststs(bot, message):
     free = get_size(free)
     await rju.edit(script.STATUS_TXT.format(files, total_users, totl_chats, size, free))
 
+@Client.on_message(filters.command("dbsize"))
+async def db_size_handler(client, message):
+    stats = db.command("dbstats")
+    storage_size = stats.get("storageSize", 0)
+    data_size = stats.get("dataSize", 0)
+    total_size_mb = (storage_size + data_size) / (1024 * 1024)
 
+    await message.reply_text(
+        f"🗄️ Database Size:\n"
+        f"- Data Size: {data_size / (1024 * 1024):.2f} MB\n"
+        f"- Storage Size: {storage_size / (1024 * 1024):.2f} MB\n"
+        f"- Total: {total_size_mb:.2f} MB"
+    )
+    
 @Client.on_message(filters.command('invite') & filters.user(ADMINS))
 async def gen_invite(bot, message):
     if len(message.command) == 1: return await message.reply('Gɪᴠᴇ Mᴇ A Cʜᴀᴛ Iᴅ')
