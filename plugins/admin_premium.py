@@ -2,7 +2,7 @@ from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
 from datetime import datetime, timedelta
 import pytz
-
+import utils import update_premium_status
 from info import ADMINS, LOG_CHANNEL  
 from database.users_chats_db import db
 
@@ -11,20 +11,21 @@ async def add_premium(client, message):
     try:
         args = message.text.split()
         if len(args) < 2:
-            return await message.reply("❌ Usage: /addpremium <user_id> [days]")
+            return await message.reply("❌ Usage: /addpremium user_id days")
         
         user_id = int(args[1])
         days = int(args[2]) if len(args) > 2 else 30
-
+        
         tz = pytz.timezone("Asia/Kolkata")
         expire = datetime.now(tz) + timedelta(days=days)
+        temp_time = expire.strftime("%H:%M:%S")
         date_var, time_var = str(expire).split(" ")
-        await db.update_verification(user_id, date_var, time_var)
+        await update_premium_status(bot, user.id, date_var, temp_time)
 
         # Admin confirmation
         await message.reply(
             f"✅ Added premium to user `{user_id}` for {days} days.\n"
-            f"⏳ Expires on **{date_var} {time_var}**."
+            f"⏳ Expires on **{date_var} {temp_time}**."
         )
 
         # Log in channel
@@ -35,7 +36,7 @@ async def add_premium(client, message):
                     f"📢 **Premium Activated**\n\n"
                     f"👤 User ID: `{user_id}`\n"
                     f"⏳ Valid for: `{days} days`\n"
-                    f"🕒 Expires on: `{date_var} {time_var}`\n"
+                    f"🕒 Expires on: `{date_var} {temp_time}`\n"
                     f"🔧 Activated by: [{message.from_user.first_name}](tg://user?id={message.from_user.id})"
                 )
             )
@@ -49,7 +50,7 @@ async def add_premium(client, message):
                 text=(
                     f"🎉 Congratulations!\n\n"
                     f"💎 You’ve been upgraded to **Premium** for **{days} days**.\n"
-                    f"⏳ Expires on: `{date_var} {time_var}`\n\n"
+                    f"⏳ Expires on: `{date_var} {temp_time}`\n\n"
                     f"Enjoy your ad-free, enhanced experience! 🥳"
                 ),
                 reply_markup=InlineKeyboardMarkup([
