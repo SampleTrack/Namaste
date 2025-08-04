@@ -2,7 +2,7 @@ from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
 from datetime import datetime, timedelta
 import pytz
-import utils import update_premium_status
+from utils import update_premium_status
 from info import ADMINS, LOG_CHANNEL  
 from database.users_chats_db import db
 
