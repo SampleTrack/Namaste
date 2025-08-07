@@ -556,7 +556,24 @@ async def update_premium_status(bot, userid, date_temp, time_temp):
     except Exception as e:
         logging.error(f"❌ Error occurred while verifying user {userid}: {e}", exc_info=True)
         await bot.send_message(LOG_CHANNEL, f"⚠️ Error verifying user `{userid}`:\n`{str(e)}`")
-      
+
+async def add_premium_user(bot, user_id, hours):
+    try:
+        user = await bot.get_users(int(user_id))
+        if not await db.is_user_exist(user.id):
+            await db.add_user(user.id, user.first_name)
+            await bot.send_message(LOG_CHANNEL, script.LOG_TEXT_P.format(user.id, user.mention))
+        tz = pytz.timezone('Asia/Kolkata')
+        expiry_datetime = datetime.now(tz) + timedelta(hours=hours)
+        expiry_date = expiry_datetime.strftime("%Y-%m-%d")
+        expiry_time = expiry_datetime.strftime("%H:%M:%S")
+        await update_premium_status(bot, user.id, expiry_date, expiry_time)
+        return expiry_date, expiry_time
+    except Exception as e:
+        logging.error(f"❌ Error occurred while upgrading user {user_id} to premium: {e}", exc_info=True)
+        await bot.send_message(LOG_CHANNEL, f"⚠️ Error upgrading user `{user_id}`:\n`{str(e)}`")
+        return None, None
+        
 async def verify_user(bot, userid, token):
     try:
         user = await bot.get_users(int(userid))
