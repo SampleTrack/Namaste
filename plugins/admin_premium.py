@@ -93,8 +93,12 @@ async def check_premium(client, message):
 
         # Fetch user status
         status = await db.get_verified(user_id)
-        exp = datetime.strptime(status["date"] + " " + status["time"], "%Y-%m-%d %H:%M:%S")
-        is_active = exp > datetime.now(pytz.timezone("Asia/Kolkata"))
+        
+        # Timezone-aware comparison
+        tz = pytz.timezone("Asia/Kolkata")
+        exp = tz.localize(datetime.strptime(status["date"] + " " + status["time"], "%Y-%m-%d %H:%M:%S"))
+        now = datetime.now(tz)
+        is_active = exp > now
 
         # Reply
         await message.reply(
