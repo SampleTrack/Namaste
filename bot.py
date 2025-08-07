@@ -94,6 +94,20 @@ class Bot(Client):
                 # Sleep for 1 minute and check again
                 await asyncio.sleep(60)
                 
+        asyncio.create_task(self.notify_admins_after_restart())
+
+    async def notify_admins_after_restart(self):
+        await asyncio.sleep(100)  # Wait 2 minutes
+        for admin_id in ADMINS:
+            try:
+                await self.send_message(
+                    chat_id=admin_id,
+                    text=f"🤖 Bot has successfully restarted at {datetime.now(pytz.timezone('Asia/Kolkata')).strftime('%I:%M:%S %p')}. All systems are up!"
+                )
+            except Exception as e:
+                logging.warning(f"❌ Could not send restart message to admin {admin_id}: {e}")
+
+
     async def stop(self, *args):
         await super().stop()
         logging.info("Bot stopped. Bye.")
