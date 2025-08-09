@@ -15,7 +15,9 @@ from info import CACHE_TIME, AUTH_USERS, AUTH_CHANNEL, CUSTOM_FILE_CAPTION, LOG_
 from Script import script
 
 logger = logging.getLogger(__name__)
-cache_time = 0 if AUTH_USERS or AUTH_CHANNEL else CACHE_TIME
+
+# Updated cache_time logic: if premium mode is on, always set to 0 (no caching)
+cache_time = 0 if (AUTH_USERS or AUTH_CHANNEL or PREMIUM_MODE) else CACHE_TIME
 
 
 @Client.on_inline_query()
