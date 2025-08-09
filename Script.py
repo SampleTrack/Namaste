@@ -337,12 +337,12 @@ Share & support, request the movies you want 🍿
 """
 
     FILE_MSG = """\
-<b>Hai 👋 {username}</b> 😍
+<b>Hai 👋 {}</b> 😍
 
 <b>📫 Your File is Ready</b>
 
-<b>📂 File Name:</b> <code>{filename}</code>
-<b>⚙️ File Size:</b> <b>{filesize}</b>
+<b>📂 File Name:</b> <code>{}</code>
+<b>⚙️ File Size:</b> <b>{}</b>
 """
 
     CHANNEL_CAP = """\
@@ -356,7 +356,7 @@ Share & support, request the movies you want 🍿
 """
 
     VERIFY_MSG = """\
-Hey {username} 💕
+Hey {a} 💕
 
 Temporary Token has expired! Kindly generate a new temp token to start using the bot again and get access to unlimited movies for the next 12 hours.
 
@@ -364,7 +364,7 @@ Temporary Token has expired! Kindly generate a new temp token to start using the
 """
 
     VERIFY_SUC = """\
-🎉 Congratulations {username}! Ads Token refreshed successfully!
+🎉 Congratulations {a}! Ads Token refreshed successfully!
 
 Now enjoy the bot without any ads and access unlimited movies for the next 12 hours.
 
