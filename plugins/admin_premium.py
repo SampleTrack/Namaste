@@ -2,7 +2,7 @@ from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
 from datetime import datetime, timedelta
 import pytz
-from utils import premium_user
+from utils import premium_user, update_verify_status
 from info import ADMINS, LOG_CHANNEL  
 from database.users_chats_db import db
 
@@ -54,13 +54,15 @@ async def add_premium(client, message: Message):
         await message.reply(f"⚠️ Error: `{str(e)}`", quote=True)
         
 @Client.on_message(filters.command("removepremium") & filters.user(ADMINS))
-async def remove_premium(client, message):
+async def remove_premium(client, message: Message):
     try:
         args = message.text.split()
         if len(args) < 2:
-            return await message.reply("❌ Usage: /removepremium <user_id>")
+            return await message.reply("❌ Usage: /removepremium user_id")
         user_id = int(args[1])
-        await db.update_verification(user_id, "1999-12-31", "23:59:59")
+        date_temp = "1999-12-31"
+        time_temp = "23:59:59"
+        await update_verify_status(client, user_id, date_temp, time_temp)
         await message.reply(f"✅ Removed premium for user `{user_id}`.")
     except Exception as e:
         await message.reply(f"⚠️ Error: `{e}`")
