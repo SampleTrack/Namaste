@@ -346,13 +346,13 @@ Share & support, request the movies you want 🍿
 """
 
     CHANNEL_CAP = """\
-<b>Hai 👋 {username}</b> 😍
+<b>Hai 👋 {}</b> 😍
 
-<code>{file_info}</code>
+<code>{}</code>
 
 <b>⚠️ Due to copyright, the file will be deleted from here in 10 minutes. Please download after moving from here to somewhere else!</b>
 
-<b>© Powered by {bot_name}</b>
+<b>© Powered by {}</b>
 """
 
     VERIFY_MSG = """\
