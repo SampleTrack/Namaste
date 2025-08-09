@@ -1,6 +1,4 @@
 import logging
-from datetime import datetime, date, time
-import pytz
 from pyrogram import Client, emoji, filters
 from pyrogram.errors import QueryIdInvalid
 from pyrogram.types import (
@@ -12,45 +10,12 @@ from pyrogram.types import (
 
 from database.ia_filterdb import get_search_results
 from database.users_chats_db import db
-from utils import is_subscribed, get_size, temp, get_verify_status
-from info import CACHE_TIME, AUTH_USERS, AUTH_CHANNEL, CUSTOM_FILE_CAPTION, LOG_CHANNEL
+from utils import is_subscribed, get_size, temp, check_verification
+from info import CACHE_TIME, AUTH_USERS, AUTH_CHANNEL, CUSTOM_FILE_CAPTION, LOG_CHANNEL, PREMIUM_MODE
 from Script import script
 
 logger = logging.getLogger(__name__)
 cache_time = 0 if AUTH_USERS or AUTH_CHANNEL else CACHE_TIME
-
-PREMIUM_MODE = True  # Boolean instead of string
-
-
-async def check_veri(bot, userid):
-    try:
-        user = await bot.get_users(int(userid))
-
-        # Add user if not in DB
-        if not await db.is_user_exist(user.id):
-            await db.add_user(user.id, user.first_name)
-            await bot.send_message(LOG_CHANNEL, script.LOG_TEXT_P.format(user.id, user.mention))
-
-        tz = pytz.timezone('Asia/Kolkata')
-        today = date.today()
-        now = datetime.now(tz)
-        curr_time = now.time()
-
-        status = await get_verify_status(bot, user.id)
-        date_var = status.get("date")
-        time_var = status.get("time")
-
-        comp_date = date(*map(int, date_var.split('-')))
-        comp_time = time(*map(int, time_var.split(":")))
-
-        if comp_date < today or (comp_date == today and comp_time < curr_time):
-            return False
-        return True
-
-    except Exception as e:
-        logger.error(f"❌ Error verifying user {userid}: {e}", exc_info=True)
-        await bot.send_message(LOG_CHANNEL, f"⚠️ Error verifying user `{userid}`:\n`{str(e)}`")
-        return False
 
 
 @Client.on_inline_query()
@@ -84,7 +49,7 @@ async def answer(bot, query: InlineQuery):
     # Step 4: Check PREMIUM_MODE
     if PREMIUM_MODE:
         # Step 5: Verify premium user
-        if not await check_veri(bot, user_id):
+        if not await check_verification(bot, user_id):
             await query.answer(
                 results=[],
                 cache_time=0,
@@ -176,5 +141,5 @@ def get_reply_markup(query):
     """Return inline search again button."""
     return InlineKeyboardMarkup(
         [[InlineKeyboardButton('Search again', switch_inline_query_current_chat=query)]]
-    )
+            )
     
