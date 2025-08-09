@@ -16,9 +16,7 @@ from info import CACHE_TIME, AUTH_USERS, AUTH_CHANNEL, CUSTOM_FILE_CAPTION, LOG_
 from Script import script
 
 logger = logging.getLogger(__name__)
-
-# Updated cache_time logic: if premium mode is on, always set to 0 (no caching)
-cache_time = 0 if (AUTH_USERS or AUTH_CHANNEL or PREMIUM_MODE) else CACHE_TIME
+cache_time = 0 if AUTH_USERS or AUTH_CHANNEL else CACHE_TIME
 
 
 @Client.on_inline_query()
@@ -58,7 +56,7 @@ async def answer(bot, query: InlineQuery):
                               switch_pm_parameter="premium")
             return
 
-    # Handle search parameters
+    results = []
     if '|' in query.query:
         string, file_type = query.query.split('|', maxsplit=1)
         string = string.strip()
@@ -69,89 +67,56 @@ async def answer(bot, query: InlineQuery):
 
     offset = int(query.offset or 0)
     reply_markup = get_reply_markup(query=string)
-
-    # DB Search with timeout
-    try:
-        files, next_offset, total = await asyncio.wait_for(
-            get_search_results(string, file_type=file_type, max_results=10, offset=offset),
-            timeout=4  # Prevents query expiration
-        )
-    except asyncio.TimeoutError:
-        await safe_answer(query,
-                          results=[],
-                          cache_time=0,
-                          switch_pm_text="⏳ Search took too long, try again.",
-                          switch_pm_parameter="timeout")
-        return
-    except Exception as e:
-        logger.exception("Search error: %s", e)
-        await safe_answer(query,
-                          results=[],
-                          cache_time=0,
-                          switch_pm_text="⚠️ Error during search.",
-                          switch_pm_parameter="error")
-        return
-
-    # Build results
-    results = []
+    files, next_offset, total = await get_search_results(string, file_type=file_type, max_results=10, offset=offset)
+                                                 
     for file in files:
-        title = file.file_name
-        size = get_size(file.file_size)
-        f_caption = file.caption or file.file_name
-
+        title=file.file_name
+        size=get_size(file.file_size)
+        f_caption=file.caption
         if CUSTOM_FILE_CAPTION:
             try:
-                f_caption = CUSTOM_FILE_CAPTION.format(
-                    file_name=title or "",
-                    file_size=size or "",
-                    file_caption=f_caption or ""
-                )
+                f_caption=CUSTOM_FILE_CAPTION.format(mention=query.from_user.mention, file_name= '' if title is None else title, file_size='' if size is None else size, file_caption='' if f_caption is None else f_caption)
             except Exception as e:
                 logger.exception(e)
-
+                f_caption=f_caption
+        if f_caption is None:
+            f_caption = f"{file.file_name}"
         results.append(
             InlineQueryResultCachedDocument(
-                title=title,
+                title=file.file_name,
                 document_file_id=file.file_id,
                 caption=f_caption,
-                description=f'Size: {size}\nType: {file.file_type}',
-                reply_markup=reply_markup
-            )
-        )
+                description=f'Size: {get_size(file.file_size)}\nType: {file.file_type}',
+                reply_markup=reply_markup))
 
-    # Prepare switch_pm_text
     if results:
         switch_pm_text = f"{emoji.FILE_FOLDER} Results - {total}"
+        if string:
+            switch_pm_text += f" for {string}"
+        try:
+            await query.answer(results=results,
+                           is_personal = True,
+                           cache_time=cache_time,
+                           switch_pm_text=switch_pm_text,
+                           switch_pm_parameter="start",
+                           next_offset=str(next_offset))
+        except QueryIdInvalid:
+            pass
+        except Exception as e:
+            logging.exception(str(e))
     else:
-        switch_pm_text = f'{emoji.CROSS_MARK} No results'
+        switch_pm_text = f'{emoji.CROSS_MARK} No Results'
+        if string:
+            switch_pm_text += f' for "{string}"'
 
-    if string:
-        switch_pm_text += f" for {string}"
-
-    # Send final answer safely
-    await safe_answer(query,
-                      results=results,
-                      is_personal=True,
-                      cache_time=cache_time,
-                      switch_pm_text=switch_pm_text,
-                      switch_pm_parameter="start",
-                      next_offset=str(next_offset))
+        await query.answer(results=[],
+                           is_personal = True,
+                           cache_time=cache_time,
+                           switch_pm_text=switch_pm_text,
+                           switch_pm_parameter="okay")
 
 
 def get_reply_markup(query):
-    """Creates reply markup for inline search results."""
-    buttons = [
-        [InlineKeyboardButton('Search again', switch_inline_query_current_chat=query)]
-    ]
+    buttons = [[InlineKeyboardButton('⟳ ꜱᴇᴀʀᴄʜ ᴀɢᴀɪɴ', switch_inline_query_current_chat=query)]]
     return InlineKeyboardMarkup(buttons)
 
-
-async def safe_answer(query, **kwargs):
-    """Safe wrapper to avoid QueryIdInvalid errors."""
-    try:
-        await query.answer(**kwargs)
-    except QueryIdInvalid:
-        logging.warning("Query expired before answering.")
-    except Exception as e:
-        logging.exception("Error answering inline query: %s", e)
-        
