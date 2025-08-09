@@ -31,13 +31,11 @@ async def check_veri(bot, userid):
             await db.add_user(user.id, user.first_name)
             await bot.send_message(LOG_CHANNEL, script.LOG_TEXT_P.format(user.id, user.mention))
 
-        # Timezone and current date/time
         tz = pytz.timezone('Asia/Kolkata')
         today = date.today()
         now = datetime.now(tz)
         curr_time = now.time()
 
-        # Get stored verification status
         status = await get_verify_status(bot, user.id)
         date_var = status.get("date")
         time_var = status.get("time")
@@ -45,31 +43,24 @@ async def check_veri(bot, userid):
         comp_date = date(*map(int, date_var.split('-')))
         comp_time = time(*map(int, time_var.split(":")))
 
-        # Check validity
         if comp_date < today or (comp_date == today and comp_time < curr_time):
             return False
         return True
 
-
     except Exception as e:
-        logger.error(f"❌ Error occurred while verifying user {userid}: {e}", exc_info=True)
+        logger.error(f"❌ Error verifying user {userid}: {e}", exc_info=True)
         await bot.send_message(LOG_CHANNEL, f"⚠️ Error verifying user `{userid}`:\n`{str(e)}`")
         return False
 
 
-async def inline_users(query: InlineQuery):
-    """Check if user is allowed to use inline mode."""
-    if AUTH_USERS:
-        return query.from_user and query.from_user.id in AUTH_USERS
-    return query.from_user and query.from_user.id not in temp.BANNED_USERS
-
-
 @Client.on_inline_query()
 async def answer(bot, query: InlineQuery):
-    """Show search results for given inline query."""
+    """Inline query handler following the 5-step rule system."""
 
-    # Check inline user permission
-    if not await inline_users(query):
+    user_id = query.from_user.id
+
+    # Step 1: Check if user is blocked
+    if user_id in temp.BANNED_USERS:
         await query.answer(
             results=[],
             cache_time=0,
@@ -78,27 +69,31 @@ async def answer(bot, query: InlineQuery):
         )
         return
 
-    # Check subscription
-    if AUTH_CHANNEL and not await is_subscribed(bot, query):
-        await query.answer(
-            results=[],
-            cache_time=0,
-            switch_pm_text='📢 Join our channel to use this bot.',
-            switch_pm_parameter="subscribe"
-        )
-        return
+    # Step 2: Check if AUTH_CHANNEL is set
+    if AUTH_CHANNEL:
+        # Step 3: Check subscription
+        if not await is_subscribed(bot, query):
+            await query.answer(
+                results=[],
+                cache_time=0,
+                switch_pm_text="📢 Join our channel to use this bot.",
+                switch_pm_parameter="subscribe"
+            )
+            return
 
-    # Premium verification
-    if PREMIUM_MODE and not await check_veri(bot, query.from_user.id):
-        await query.answer(
-            results=[],
-            cache_time=0,
-            switch_pm_text="💎 Premium Only - ₹99\nTap to Buy Premium",
-            switch_pm_parameter="premium"
-        )
-        return
+    # Step 4: Check PREMIUM_MODE
+    if PREMIUM_MODE:
+        # Step 5: Verify premium user
+        if not await check_veri(bot, user_id):
+            await query.answer(
+                results=[],
+                cache_time=0,
+                switch_pm_text="💎 Premium Only - ₹99\nTap to Buy Premium",
+                switch_pm_parameter="premium"
+            )
+            return
 
-    # Parse query
+    # Parse query string
     if '|' in query.query:
         string, file_type = map(str.strip, query.query.split('|', maxsplit=1))
         file_type = file_type.lower()
@@ -109,7 +104,7 @@ async def answer(bot, query: InlineQuery):
     offset = int(query.offset or 0)
     reply_markup = get_reply_markup(query=string)
 
-    # Fetch results
+    # Fetch search results
     files, next_offset, total = await get_search_results(
         string,
         file_type=file_type,
@@ -146,7 +141,7 @@ async def answer(bot, query: InlineQuery):
             )
         )
 
-    # Send results
+    # Send search results
     if results:
         switch_pm_text = f"{emoji.FILE_FOLDER} Results - {total}"
         if string:
@@ -181,4 +176,5 @@ def get_reply_markup(query):
     """Return inline search again button."""
     return InlineKeyboardMarkup(
         [[InlineKeyboardButton('Search again', switch_inline_query_current_chat=query)]]
-        )
+    )
+    
