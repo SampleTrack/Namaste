@@ -1,5 +1,5 @@
 # 🔧 Core Libraries
-pyrofork
+pyrogram 
 tgcrypto==1.2.5
 python-dotenv==1.1.1
 requests==2.32.4
@@ -41,3 +41,4 @@ psutil
 
 # 🌿 Scraping & Parsing
 beautifulsoup4
+
