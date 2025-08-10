@@ -29,6 +29,64 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
 
 
+# ----------------------------
+# Utility Functions
+# ----------------------------
+async def format_caption(user_mention, title, size, base_caption):
+    """Format custom caption or fallback to default."""
+    if CUSTOM_FILE_CAPTION:
+        try:
+            return CUSTOM_FILE_CAPTION.format(
+                mention=user_mention,
+                file_name=title or '',
+                file_size=size or '',
+                file_caption=base_caption or ''
+            )
+        except Exception as e:
+            logger.exception(f"Caption formatting error: {e}")
+    return base_caption or title
+
+
+async def send_file(client, query, ident, file_id, title, size):
+    """Send file to channel and reply with download link."""
+    try:
+        # Send to file channel
+        file_send = await client.send_cached_media(
+            chat_id=FILE_CHANNEL,
+            file_id=file_id,
+            caption=script.CHANNEL_CAP.format(
+                query.from_user.mention, title, query.message.chat.title
+            ),
+            protect_content=(ident == "filep"),
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("📢 Update Channel", url=UPDATE_CHANNEL)],
+                [
+                    InlineKeyboardButton("🇮🇳 Hindi", callback_data='hin'),
+                    InlineKeyboardButton("🇮🇳 Marathi", callback_data='mar'),
+                    InlineKeyboardButton("🇮🇳 Telugu", callback_data='tel')
+                ]
+            ])
+        )
+
+        # Send reply with download button
+        msg = await query.message.reply_text(
+            script.FILE_MSG.format(query.from_user.mention, title, size),
+            parse_mode=enums.ParseMode.HTML,
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("📥 Download Link", url=file_send.link)],
+                [InlineKeyboardButton("⚠️ Can't Access? Click Here", url=FILE_FORWARD)]
+            ])
+        )
+
+        # Auto-delete after 10 mins
+        await query.answer("✅ File sent! Check the channel.")
+        await asyncio.sleep(600)
+        await msg.delete()
+        await file_send.delete()
+
+    except Exception as e:
+        logger.exception(f"Error sending file: {e}")
+        await query.answer("❌ Could not send the file. Try again later.", show_alert=True)
 
 @Client.on_callback_query()
 async def cb_handler(client: Client, query: CallbackQuery):
