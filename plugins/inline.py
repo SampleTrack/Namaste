@@ -8,7 +8,7 @@ from pyrogram.types import (
     InlineQuery
 )
 
-from database.ia_filterdb import get_search_results
+from database.ia_filterdb import get_search_results_fast
 from database.users_chats_db import db
 from utils import is_subscribed, get_size, temp, check_verification
 from info import CACHE_TIME, AUTH_USERS, AUTH_CHANNEL, CUSTOM_FILE_CAPTION, LOG_CHANNEL, PREMIUM_MODE
@@ -71,7 +71,7 @@ async def answer(bot, query: InlineQuery):
 
     offset = int(query.offset or 0)
     reply_markup = get_reply_markup(query=string)
-    files, next_offset, total = await get_search_results(string,
+    files, next_offset, total = await get_search_results_fast(string,
                                                          file_type=file_type,
                                                          max_results=10,
                                                          offset=offset)
