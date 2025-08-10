@@ -64,23 +64,25 @@ class Database:
             return chat.get('invite_link', None)
         return None
 
-    async def update_verification(self, id, date, time):
+    async def update_verification(self, id, date, time, days):
         status = {
             'date': str(date),
-            'time': str(time)
+            'time': str(time),
+            'days': str(days)
         }
         await self.col.update_one({'id': int(id)}, {'$set': {'verification_status': status}})
     
     async def get_verified(self, id):
         default = {
             'date': "1999-12-31",
-            'time': "23:59:59"
+            'time': "23:59:59",
+            'days': "0"
         }
         user = await self.col.find_one({'id': int(id)})
         if user:
             return user.get("verification_status", default)
         return default
-        
+    
     async def add_user(self, id, name):
         user = self.new_user(id, name)
         await self.col.insert_one(user)
