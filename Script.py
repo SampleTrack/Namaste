@@ -3,7 +3,7 @@ class script(object):
 <b>👋 Hello {},
 
 My Name Is <a href="https://t.me/{}">{}</a> 🎬
-I Can Provide Movies! Just Add Me To Your Group And Enjoy 😍...</b>"""
+I Can Suggest Movies! Just Add Me To Your Group And Enjoy 😍...</b>"""
 
     HELP_TXT = """\
 <b>🆘 Hey {},
