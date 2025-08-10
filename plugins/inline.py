@@ -11,7 +11,7 @@ from pyrogram.types import (
 from database.ia_filterdb import get_search_results_fast
 from database.users_chats_db import db
 from utils import is_subscribed, get_size, temp, check_verification
-from info import CACHE_TIME, AUTH_USERS, AUTH_CHANNEL, CUSTOM_FILE_CAPTION, LOG_CHANNEL, PREMIUM_MODE
+from info import CACHE_TIME, ADMINS, AUTH_USERS, AUTH_CHANNEL, CUSTOM_FILE_CAPTION, LOG_CHANNEL, PREMIUM_MODE
 from Script import script
 
 logger = logging.getLogger(__name__)
@@ -49,7 +49,7 @@ async def answer(bot, query: InlineQuery):
             return
 
     # Step 4: Check PREMIUM_MODE
-    if PREMIUM_MODE:
+    if PREMIUM_MODE and (user_id not in AUTH_USERS and user_id not in ADMINS):
         # Step 5: Verify premium user
         if not await check_verification(bot, user_id):
             await query.answer(
