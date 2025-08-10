@@ -6,9 +6,6 @@ from utils import premium_user, update_verify_status
 from info import ADMINS, LOG_CHANNEL  
 from database.users_chats_db import db
 
-# Configurations
-USE_12_HOUR_FORMAT = True
-
 @Client.on_message(filters.command("addpremium") & filters.user(ADMINS))
 async def add_premium(client, message: Message):
     try:
@@ -70,76 +67,64 @@ async def remove_premium(client, message: Message):
     except Exception as e:
         await message.reply(f"⚠️ Error: `{e}`")
 
-@Client.on_message(filters.command(["checkpremium", "checkverification"]))
+@Client.on_message(filters.command("checkpremium"))
 async def check_premium(client, message: Message):
     try:
         args = message.text.split()
         sender_id = message.from_user.id
-        sender_name = message.from_user.first_name
+        sender_name = message.from_user.mention
         is_admin = sender_id in ADMINS
 
-        # Determine target user
-        if len(args) > 1:
-            if not is_admin:
-                return await message.reply("❌ You are not allowed to check other users' status.")
-            user_id = int(args[1])
-            name_display = ""
-        else:
+        # Get target user ID
+        if len(args) == 1:
             user_id = sender_id
-            name_display = " (Myself)"
+            user_name = sender_name
+        else:
+            user_id = int(args[1])
+            if not is_admin and user_id != sender_id:
+                return await message.reply("❌ You are not allowed to check other users' premium status.")
+            try:
+                target = await client.get_users(user_id)
+                user_name = target.mention
+            except:
+                user_name = "Unknown"
 
-        # Fetch data from DB
-        data = await db.get_verified(user_id)
-        date_str = data.get('date', "1999-12-31")
-        time_str = data.get('time', "23:59:59")
+        # Fetch premium data
+        status = await db.get_verified(user_id)
+        if not status:
+            return await message.reply("⚠️ No premium data found for this user.")
+
+        # Timezone-aware calculation
         tz = pytz.timezone("Asia/Kolkata")
-
-        # Handle unverified
-        if date_str == "1999-12-31" and time_str == "23:59:59":
-            return await message.reply(f"🟡 User: `{user_id}`{name_display}\n\nNot verified yet.")
-
-        # Parse & calculate
-        verified_dt = tz.localize(datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M:%S"))
-        
-        # Expiry times
-        verification_expiry = verified_dt + timedelta(hours=12)
-        premium_expiry = verified_dt  # Change if premium expiry differs
-
+        exp_dt = tz.localize(datetime.strptime(status["date"] + " " + status["time"], "%Y-%m-%d %H:%M:%S"))
         now = datetime.now(tz)
+        is_active = exp_dt > now
 
-        # Active statuses
-        verification_active = verification_expiry > now
-        premium_active = premium_expiry > now
+        # Calculate time left if active
+        if is_active:
+            delta = exp_dt - now
+            days = delta.days
+            hours, remainder = divmod(delta.seconds, 3600)
+            minutes = remainder // 60
+            time_left = f"{days}d {hours}h {minutes}m"
+        else:
+            time_left = "Expired ❌"
 
-        # Time left calculations
-        def time_left_str(expiry_dt):
-            if expiry_dt <= now:
-                return "Expired"
-            td = expiry_dt - now
-            hrs, rem = divmod(int(td.total_seconds()), 3600)
-            mins, secs = divmod(rem, 60)
-            return f"{hrs}h {mins}m {secs}s"
+        # Format dates
+        last_on = datetime.strptime(status["date"] + " " + status["time"], "%Y-%m-%d %H:%M:%S").strftime("%d/%m/%Y, %I:%M %p")
+        expires_on = exp_dt.strftime("%d/%m/%Y, %I:%M %p")
 
-        # Formatting dates
-        def fmt(dt):
-            return dt.strftime("%d/%m/%Y, %I:%M %p") if USE_12_HOUR_FORMAT else dt.strftime("%d/%m/%Y, %H:%M")
-
-        # Reply
+        # Reply with new format
         await message.reply(
-            f"👤 User: `{user_id}`{name_display}\n\n"
-            f"{'✅' if verification_active else '❌'} Verification: {'Active' if verification_active else 'Expired'}\n"
-            f"🗓️ Last On: {fmt(verified_dt)}\n"
-            f"📌 Expires: {fmt(verification_expiry)}\n"
-            f"⏳ Time Left: {time_left_str(verification_expiry)}\n\n"
-            f"{'✅' if premium_active else '❌'} Premium: {'Active' if premium_active else 'Expired'}\n"
-            f"🗓️ Last On: {fmt(verified_dt)}\n"
-            f"📌 Expires: {fmt(premium_expiry)}\n"
-            f"⏳ Time Left: {time_left_str(premium_expiry)}"
+            f"👤 **User:** `{user_id}` ({user_name})\n"
+            f"💎 **Premium Status:** {'😄 Active' if is_active else '😔 Expired'}\n"
+            f"🗓️ **Last On:** `{last_on}`\n"
+            f"📌 **Expires:** `{expires_on}`\n"
+            f"⏳ **Time Left:** `{time_left}`"
         )
 
     except Exception as e:
         await message.reply(f"⚠️ Error: `{e}`")
-        
         
 @Client.on_message(filters.command("buypremium") & filters.private)
 async def buy_premium_info(client, message):
