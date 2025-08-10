@@ -528,7 +528,6 @@ async def get_verify_status(bot, userid):
         return status
     except Exception as e:
         logging.error(f"❌ Error occurred while verifying user {userid}: {e}", exc_info=True)
-        # Optional: send a message to admin or log channel
         await bot.send_message(LOG_CHANNEL, f"⚠️ Error verifying user `{userid}`:\n`{str(e)}`")
 
 async def send_verification_log(bot, userid, date_temp, time_temp):
@@ -541,42 +540,47 @@ async def send_verification_log(bot, userid, date_temp, time_temp):
         # Optional: send a message to admin or log channel
         await bot.send_message(LOG_CHANNEL, f"⚠️ Error verifying user `{userid}`:\n`{str(e)}`")
 
-async def update_verify_status(bot, userid, date_temp, time_temp):
+async def update_verify_status(bot, userid, date_temp, time_temp, temp_days):
     try:
         status = await get_verify_status(bot, userid)
         status["date"] = date_temp
         status["time"] = time_temp
+        status["days"] = str(temp_days)  # store as string for consistency
         temp.VERIFY[userid] = status
-        await db.update_verification(userid, date_temp, time_temp)
-        await send_verification_log(bot, userid, date_temp, time_temp)
-    except Exception as e:
-        logging.error(f"❌ Error occurred while verifying user {userid}: {e}", exc_info=True)
-        # Optional: send a message to admin or log channel
-        await bot.send_message(LOG_CHANNEL, f"⚠️ Error verifying user `{userid}`:\n`{str(e)}`")
-
-async def update_premium_status(bot, userid, date_temp, time_temp):
-    try:
-        status = await get_verify_status(bot, userid)
-        status["date"] = date_temp
-        status["time"] = time_temp
-        temp.VERIFY[userid] = status
-        await db.update_verification(userid, date_temp, time_temp)
+        await db.update_verification(userid, date_temp, time_temp, temp_days)
         await send_verification_log(bot, userid, date_temp, time_temp)
     except Exception as e:
         logging.error(f"❌ Error occurred while verifying user {userid}: {e}", exc_info=True)
         await bot.send_message(LOG_CHANNEL, f"⚠️ Error verifying user `{userid}`:\n`{str(e)}`")
 
-async def premium_user(bot, user_id, hours):
+
+
+async def update_premium_status(bot, userid, date_temp, time_temp, temp_days):
+    try:
+        status = await get_verify_status(bot, userid)
+        status["date"] = date_temp
+        status["time"] = time_temp
+        status["days"] = str(temp_days) 
+        temp.VERIFY[userid] = status
+        await db.update_verification(userid, date_temp, time_temp)
+        await send_verification_log(bot, userid, date_temp, time_temp)
+    except Exception as e:
+        logging.error(f"❌ Error occurred while verifying user {userid}: {e}", exc_info=True)
+        await bot.send_message(LOG_CHANNEL, f"⚠️ Error verifying user `{userid}`:\n`{str(e)}`")
+
+async def premium_user(bot, user_id, days):
     try:
         user = await bot.get_users(int(user_id))
         if not await db.is_user_exist(user.id):
             await db.add_user(user.id, user.first_name)
             await bot.send_message(LOG_CHANNEL, script.LOG_TEXT_P.format(user.id, user.mention))
         tz = pytz.timezone('Asia/Kolkata')
+        days = int(args[2]) if len(args) > 2 else 30
+        hours = days * 24
         date_var = datetime.now(tz)+timedelta(hours=hours)
         temp_time = date_var.strftime("%H:%M:%S")
         date_var, time_var = str(date_var).split(" ")
-        await update_premium_status(bot, user.id, date_var, temp_time)
+        await update_premium_status(bot, user.id, date_var, temp_time, days)
         return date_var, temp_time
     except Exception as e:
         logging.error(f"❌ Error occurred while upgrading user {user_id} to premium: {e}", exc_info=True)
