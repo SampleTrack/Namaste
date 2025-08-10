@@ -212,231 +212,111 @@ async def cb_handler(client: Client, query: CallbackQuery):
             alert = alert.replace("\\n", "\n").replace("\\t", "\t")
             await query.answer(alert, show_alert=True)
 
-    if query.data.startswith("file"):
-        user_id = query.from_user.id
-        clicked = query.from_user.id
-        try:
-            typed = query.message.reply_to_message.from_user.id
-        except:
-            typed = query.from_user.id
-        ident, req, file_id = query.data.split("#")
-        if BUTTON_LOCK:
-            if int(req) not in [query.from_user.id, 0]:
-                return await query.answer(BUTTON_LOCK_TEXT.format(query=query.from_user.first_name), show_alert=True)
-        files_ = await get_file_details(file_id)
-        if not files_:
-            return await query.answer('No such file exists.')
-        files = files_[0]
-        title = files.file_name
-        size = get_size(files.file_size)
-        f_caption = files.caption
-        settings = await get_settings(query.message.chat.id)
-        if CUSTOM_FILE_CAPTION:
-            try:
-                f_caption = CUSTOM_FILE_CAPTION.format(file_name='' if title is None else title,
-                                                       file_size='' if size is None else size,
-                                                       file_caption='' if f_caption is None else f_caption)
-            except Exception as e:
-                logger.exception(e)
-            f_caption = f_caption
-        if f_caption is None:
-            f_caption = f"{files.file_name}"
-    
-        try:
-            if AUTH_CHANNEL and not await is_subscribed(client, query):
-                if clicked == typed:
-                    await query.answer(url=f"https://t.me/{temp.U_NAME}?start={ident}_{file_id}")
-                    return
-                else:
-                    await query.answer(f"Hey {query.from_user.first_name}, This is not your movie request. Request yours!", show_alert=True)
-            elif IS_VERIFY and not await check_verification(client, query.from_user.id):
-                await query.answer(url=f"https://t.me/{temp.U_NAME}?start={ident}_{file_id}")
-                return
-            elif settings['botpm']:
-                if clicked == typed:
-                    await query.answer(url=f"https://t.me/{temp.U_NAME}?start={ident}_{file_id}")
-                    return
-                else:
-                    await query.answer(f"Hey {query.from_user.first_name}, This is not your movie request. Request yours!", show_alert=True)
-            else:
-                if clicked == typed:
-                    file_send = await client.send_cached_media(
-                        chat_id=FILE_CHANNEL,
-                        file_id=file_id,
-                        caption=script.CHANNEL_CAP.format(query.from_user.mention, title, query.message.chat.title),
-                        protect_content=True if ident == "filep" else False,
-                        reply_markup=InlineKeyboardMarkup(
-                            [
-                                [
-                                    InlineKeyboardButton("Update Channel", url=UPDATE_CHANNEL)
-                                ],
-                                [
-                                    InlineKeyboardButton(f'Hindi', 'hin'),
-                                    InlineKeyboardButton(f'Marathi', 'mar'),
-                                    InlineKeyboardButton(f'Telugu', 'tel')
-                                ]
-                            ]
-                        )
-                    )
-                    Joel_tgx = await query.message.reply_text(
-                        script.FILE_MSG.format(query.from_user.mention, title, size),
-                        parse_mode=enums.ParseMode.HTML,
-                        reply_markup=InlineKeyboardMarkup(
-                            [
-                                [
-                                    InlineKeyboardButton('📥 Download Link 📥', url=file_send.link)
-                                ],
-                                [
-                                    InlineKeyboardButton("⚠️ Can't Access ❓ Click Here ⚠️", url=FILE_FORWARD)
-                                ]
-                            ]
-                        )
-                    )
-                    await query.answer('Check PM, I have sent files in File Channel')
-                    await asyncio.sleep(600)
-                    await Joel_tgx.delete()
-                    await file_send.delete()
-                else:
-                    return await query.answer(f"Hey {query.from_user.first_name}, This is not your movie request. Request yours!", show_alert=True)
-        except UserIsBlocked:
-            await query.answer('Unblock the bot mahnn!', show_alert=True)
-        except PeerIdInvalid:
-            await query.answer(url=f"https://t.me/{temp.U_NAME}?start={ident}_{file_id}")
-        except Exception as e:
-            await query.answer(url=f"https://t.me/{temp.U_NAME}?start={ident}_{file_id}")
-            
-    elif query.data.startswith("pmfile"):
+    # ------------------------
+    # FILE REQUEST HANDLER
+    # ------------------------
+    if data.startswith("file") or data.startswith("pmfile"):
         clicked = query.from_user.id
         try:
             typed = getattr(getattr(query.message.reply_to_message, "from_user", None), "id", clicked)
-        except Exception as e:
+        except:
             typed = clicked
-    
-        try:
-            ident, file_id = query.data.split("#")
-        except ValueError:
+
+        parts = data.split("#")
+        if len(parts) < 2:
             return await query.answer("❌ Invalid data format.", show_alert=True)
-    
-        # Get file details
+
+        ident = parts[0]
+        file_id = parts[-1]
+        req = int(parts[1]) if data.startswith("file") and len(parts) >= 3 else None
+
+        # Button lock check
+        if BUTTON_LOCK and data.startswith("file"):
+            if req not in [query.from_user.id, 0]:
+                return await query.answer(
+                    BUTTON_LOCK_TEXT.format(query=query.from_user.first_name),
+                    show_alert=True
+                )
+
+        # Fetch file details
         files_ = await get_file_details(file_id)
         if not files_:
-            return await query.answer("❌ No Such File Exist.", show_alert=True)
-    
+            return await query.answer("❌ No such file exists.", show_alert=True)
+
         files = files_[0]
         title = files.file_name
         size = get_size(files.file_size)
-        f_caption = title
-    
-        # Custom caption
-        if CUSTOM_FILE_CAPTION:
-            try:
-                f_caption = CUSTOM_FILE_CAPTION.format(
-                    mention=query.from_user.mention,
-                    file_name=title or '',
-                    file_size=size or '',
-                    file_caption=f_caption or ''
-                )
-            except Exception as e:
-                logger.exception(e)
-    
-        # Check subscription
+        f_caption = await format_caption(query.from_user.mention, title, size, files.caption)
+
+        # Subscription check
         if AUTH_CHANNEL and not await is_subscribed(client, query):
             return await query.answer(
                 url=f"https://t.me/{temp.U_NAME}?start={ident}_{file_id}"
             )
-    
+
+        # Owner check
         if clicked != typed:
             return await query.answer(
-                f"⚠️ Hey {query.from_user.first_name}, this is not your movie request.",
+                f"⚠️ Hey {query.from_user.first_name}, this is not your request. Please request your own file.",
                 show_alert=True
             )
-    
-        # Check verification
+
+        # Verification check
         if IS_VERIFY and not await check_verification(client, query.from_user.id):
             verify_link = await get_token(
-                client,
-                query.from_user.id,
-                f"https://telegram.me/{temp.U_NAME}?start=",
-                file_id
+                client, query.from_user.id,
+                f"https://telegram.me/{temp.U_NAME}?start=", file_id
             )
-            # print for debugging
-            print(f"Verification link generated: {verify_link}")
             btn = [
-                [
-                    InlineKeyboardButton("✅ V,,ᴇʀɪғʏ", url=verify_link),
-                    InlineKeyboardButton("ℹ️ Hᴏᴡ Tᴏ Vᴇʀɪғʏ", url=HOW_TO_VERIFY)
-                ]
+                [InlineKeyboardButton("✅ Verify", url=verify_link)],
+                [InlineKeyboardButton("ℹ️ How to Verify", url=HOW_TO_VERIFY)]
             ]
             try:
-                await client.send_chat_action(query.from_user.id, enums.ChatAction.TYPING)
                 await client.send_message(
                     chat_id=query.from_user.id,
                     text=script.VERI_MSG,
-                    protect_content=(ident == 'checksubp'),
                     disable_web_page_preview=True,
                     parse_mode=enums.ParseMode.HTML,
                     reply_markup=InlineKeyboardMarkup(btn)
                 )
-            except Exception as e:
-                logger.exception(e)
-                return await query.answer("❌ Please start the bot in PM first.", show_alert=True)
-    
+            except UserIsBlocked:
+                return await query.answer("❌ Please unblock the bot first.", show_alert=True)
+            except PeerIdInvalid:
+                return await query.answer(
+                    url=f"https://t.me/{temp.U_NAME}?start={ident}_{file_id}"
+                )
             return await query.answer("👋 Please verify first. Check your PM!", show_alert=True)
-    
-        # Send file to file channel
-        try:
-            file_send = await client.send_cached_media(
-                chat_id=FILE_CHANNEL,  # Make sure it's -1001234567890 or '@channelusername'
-                file_id=file_id,
-                caption=script.CHANNEL_CAP.format(query.from_user.mention, title, query.message.chat.title),
-                protect_content=(ident == "filep"),
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("Update Channel", url=UPDATE_CHANNEL)],
-                    [
-                        InlineKeyboardButton("Hindi", callback_data='hin'),
-                        InlineKeyboardButton("Marathi", callback_data='mar'),
-                        InlineKeyboardButton("Telugu", callback_data='tel')
-                    ]
-                ])
-            )
-        except Exception as e:
-            logger.exception(e)
-            return await query.answer("❌ Failed to send media. Please try later.", show_alert=True)
-    
-        # Send link message
-        try:
-            msg = await query.message.reply_text(
-                script.FILE_MSG.format(query.from_user.mention, title, size),
-                parse_mode=enums.ParseMode.HTML,
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("📥 Download Link 📥", url=file_send.link)],
-                    [InlineKeyboardButton("⚠️ Can't Access ❓ Click Here ⚠️", url=FILE_FORWARD)]
-                ])
-            )
-            await query.answer("✅ File sent! Check the channel.")
-            await asyncio.sleep(600)
-            await msg.delete()
-            await file_send.delete()
-        except Exception as e:
-            logger.exception(e)
-            return await query.answer(f"⚠️ Error: {e}", show_alert=True)
 
-    elif query.data.startswith("checksub"):
+        # Send file
+        await send_file(client, query, ident, file_id, title, size)
+
+    # ------------------------
+    # CHECK SUBSCRIPTION HANDLER
+    # ------------------------
+    elif data.startswith("checksub"):
         if AUTH_CHANNEL and not await is_subscribed(client, query):
-            return await query.answer("I Lɪᴋᴇ Yᴏᴜʀ Sᴍᴀʀᴛɴᴇss, Bᴜᴛ Dᴏɴ'ᴛ Bᴇ Oᴠᴇʀsᴍᴀʀᴛ Oᴋᴀʏ 😏", show_alert=True)
-        ident, file_id = query.data.split("#")
+            return await query.answer(
+                "😏 Nice try, but please subscribe first!",
+                show_alert=True
+            )
+
+        ident, file_id = data.split("#")
         files_ = await get_file_details(file_id)
-        if not files_: return await query.answer('NO SUCH FILE EXIST....')
+        if not files_:
+            return await query.answer("❌ No such file exists.", show_alert=True)
+
         files = files_[0]
         title = files.file_name
         size = get_size(files.file_size)
-        f_caption = f"{title}"
-        if CUSTOM_FILE_CAPTION:
-            try: f_caption = CUSTOM_FILE_CAPTION.format(mention=query.from_user.mention, file_name='' if title is None else title, file_size='' if size is None else size, file_caption='' if f_caption is None else f_caption)  
-            except Exception as e: logger.exception(e)
-        await client.send_cached_media(chat_id=query.from_user.id, file_id=file_id, caption=f_caption, protect_content=True if ident == 'checksubp' else False)
-    
+        f_caption = await format_caption(query.from_user.mention, title, size, title)
 
+        await client.send_cached_media(
+            chat_id=query.from_user.id,
+            file_id=file_id,
+            caption=f_caption,
+            protect_content=(ident == 'checksubp')
+        )
+        
     elif query.data == "start":                        
         buttons = [[
             InlineKeyboardButton("➕️ Aᴅᴅ Mᴇ Tᴏ Yᴏᴜʀ Cʜᴀᴛ ➕", url=f"http://t.me/{temp.U_NAME}?startgroup=true")
