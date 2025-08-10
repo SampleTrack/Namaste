@@ -67,40 +67,64 @@ async def remove_premium(client, message: Message):
     except Exception as e:
         await message.reply(f"⚠️ Error: `{e}`")
 
-@Client.on_message(filters.command("checkpremium"))
-async def check_premium(client, message):
+@Client.on_message(filters.command(["checkpremium", "checkverification"]))
+async def check_premium(client, message: Message):
     try:
         args = message.text.split()
         sender_id = message.from_user.id
         sender_name = message.from_user.mention
         is_admin = sender_id in ADMINS
 
-        # Get target user_id (from argument or self)
-        if len(args) == 1:
-            user_id = sender_id
-        else:
+        if len(args) > 1:
+            if not is_admin:
+                return await message.reply("❌ You are not allowed to check other users' status.")
             user_id = int(args[1])
-            if not is_admin and user_id != sender_id:
-                return await message.reply("❌ You are not allowed to check other users' premium status.")
+        else:
+            user_id = sender_id
 
-        # Fetch user status
-        status = await db.get_verified(user_id)
-        
-        # Timezone-aware comparison
+        # Fetch user data from DB
+        data = await db.get_verified(user_id)
+        date_str = data.get('date', "1999-12-31")
+        time_str = data.get('time', "23:59:59")
         tz = pytz.timezone("Asia/Kolkata")
-        exp = tz.localize(datetime.strptime(status["date"] + " " + status["time"], "%Y-%m-%d %H:%M:%S"))
-        now = datetime.now(tz)
-        is_active = exp > now
 
-        # Reply
+        # Handle unverified users
+        if date_str == "1999-12-31" and time_str == "23:59:59":
+            return await message.reply("🟡 User has not verified yet.")
+
+        # Parse date & time
+        verified_dt = tz.localize(datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M:%S"))
+        verification_expiry = verified_dt + timedelta(hours=12)
+        premium_expiry = verified_dt
+        now = datetime.now(tz)
+        verification_active = verification_expiry > now
+        premium_active = premium_expiry > now
+
+        if verification_active:
+            verification_time_left = str(verification_expiry - now).split(".")[0]  # hh:mm:ss
+        else:
+            verification_time_left = "Expired"
+        def fmt(dt):
+            return dt.strftime("%d %b %Y, %I:%M:%S %p IST") if USE_12_HOUR_FORMAT else dt.strftime("%d %b %Y, %H:%M:%S IST")
+
+        verified_fmt = fmt(verified_dt)
+        verification_exp_fmt = fmt(verification_expiry)
+        premium_exp_fmt = fmt(premium_expiry)
+
+        # Reply message
         await message.reply(
-            f"👤 User: `{user_id}` {'(' + sender_name + ')' if user_id == sender_id else ''}\n"
-            f"💎 Premium: {'✅ Active' if is_active else '❌ Expired'}\n"
-            f"⏳ Expires on: `{status['date']} {status['time']}`"
+            f"👤 **User**: `{user_id}` {'(' + sender_name + ')' if user_id == sender_id else ''}\n"
+            f"💎 **Premium**: {'✅ Active' if premium_active else '❌ Expired'}\n"
+            f"🗓️ Premium Expires: `{premium_exp_fmt}`\n\n"
+            f"✅ **Verification**: {'Active' if verification_active else 'Expired'}\n"
+            f"🗓️ Verified On: `{verified_fmt}`\n"
+            f"📌 Verification Expires: `{verification_exp_fmt}`\n"
+            f"⏳ Time Left: `{verification_time_left}`"
         )
 
     except Exception as e:
         await message.reply(f"⚠️ Error: `{e}`")
+        
         
 @Client.on_message(filters.command("buypremium") & filters.private)
 async def buy_premium_info(client, message):
