@@ -305,7 +305,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
             print(f"Verification link generated: {verify_link}")
             btn = [
                 [
-                    InlineKeyboardButton("✅ Vᴇʀɪғʏ", url=verify_link),
+                    InlineKeyboardButton("✅ V,,ᴇʀɪғʏ", url=verify_link),
                     InlineKeyboardButton("ℹ️ Hᴏᴡ Tᴏ Vᴇʀɪғʏ", url=HOW_TO_VERIFY)
                 ]
             ]
