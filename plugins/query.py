@@ -222,6 +222,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
         except:
             typed = clicked
 
+        data = query.data  # ✅ Fix: Define data
         parts = data.split("#")
         if len(parts) < 2:
             return await query.answer("❌ Invalid data format.", show_alert=True)
