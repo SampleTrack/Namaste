@@ -9,7 +9,7 @@ wget
 pytz
 
 # 🗃️ Database & ORM
-pymongo[srv]
+pymongo
 motor
 marshmallow
 umongo
@@ -41,5 +41,6 @@ psutil
 
 # 🌿 Scraping & Parsing
 beautifulsoup4
+
 
 
