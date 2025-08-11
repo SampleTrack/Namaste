@@ -562,7 +562,7 @@ async def update_premium_status(bot, userid, date_temp, time_temp, temp_days):
         status["time"] = time_temp
         status["days"] = str(temp_days) 
         temp.VERIFY[userid] = status
-        await db.update_verification(userid, date_temp, time_temp)
+        await db.update_verification(userid, date_temp, time_temp, temp_days)
         await send_verification_log(bot, userid, date_temp, time_temp)
     except Exception as e:
         logging.error(f"❌ Error occurred while verifying user {userid}: {e}", exc_info=True)
