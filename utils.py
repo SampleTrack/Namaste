@@ -595,15 +595,16 @@ async def verify_user(bot, userid, token):
             await bot.send_message(LOG_CHANNEL, script.LOG_TEXT_P.format(user.id, user.mention))
         TOKENS[user.id] = {token: True}
         tz = pytz.timezone('Asia/Kolkata')
-        date_var = datetime.now(tz)+timedelta(hours=12)
+        hours = 12
+        date_var = datetime.now(tz) + timedelta(hours=hours)
+        days = ceil(hours / 24)  # → 12h becomes 1 day
         temp_time = date_var.strftime("%H:%M:%S")
         date_var, time_var = str(date_var).split(" ")
-        await update_verify_status(bot, user.id, date_var, temp_time)
+        await update_verify_status(bot, user.id, date_var, temp_time, days)
     except Exception as e:
-            logging.error(f"❌ Error occurred while verifying user {userid}: {e}", exc_info=True)
-            # Optional: send a message to admin or log channel
-            await bot.send_message(LOG_CHANNEL, f"⚠️ Error verifying user `{userid}`:\n`{str(e)}`")
-
+        logging.error(f"❌ Error occurred while verifying user {userid}: {e}", exc_info=True)
+        await bot.send_message(LOG_CHANNEL, f"⚠️ Error verifying user `{userid}`:\n`{str(e)}`")
+         
 async def check_verification(bot, userid):
     try:
         user = await bot.get_users(int(userid))
