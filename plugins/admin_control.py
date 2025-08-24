@@ -37,7 +37,7 @@ async def save_group(bot, message):
             total_chats = await db.total_chat_count() + 1
             daily_chats = await db.daily_chats_count(today) + 1
             referrer = message.from_user.mention if message.from_user else "Anonymous"
-            await bot.send_message(LOG_CHANNEL, script.LOG_TEXT_G.format(a=message.chat.title, b=message.chat.id, c=message.chat.username, d=total_members, e=total_chats, f=daily_chats, g=str(today), h=time, i=referrer, j=temp.U_NAME))
+            await bot.send_message(LOG_CHANNEL, script.LOG_TEXT_G.format(a=message.chat.title, b=message.chat.id, c=message.chat.username, d=total_members, e=total_chats, f=daily_chats, g=str(today), h=time, i=referrer, j=temp.U_NAME, k=message.chat.username))
             await db.add_chat(message.chat.id, message.chat.title, message.chat.username)
             
         if message.chat.id in temp.BANNED_CHATS:
