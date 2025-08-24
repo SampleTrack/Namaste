@@ -82,7 +82,79 @@ class Database:
         if user:
             return user.get("verification_status", default)
         return default
-    
+
+    async def add_premium(self, user_id: int, days: int):
+        """Add premium to a user for given days"""
+        tz = pytz.timezone("Asia/Kolkata")
+        start_date = datetime.now(tz)
+        end_date = start_date + timedelta(days=days)
+
+        premium_status = {
+            "is_premium": True,
+            "start_date": str(start_date),
+            "end_date": str(end_date)
+        }
+
+        await self.col.update_one(
+            {"id": int(user_id)},
+            {"$set": {"premium_status": premium_status}},
+            upsert=True
+        )
+
+    async def is_premium(self, user_id: int) -> bool:
+        """Check if user is currently premium"""
+        tz = pytz.timezone("Asia/Kolkata")
+        now = datetime.now(tz)
+        user = await self.col.find_one({"id": int(user_id)})
+        if not user:
+            return False
+        premium = user.get("premium_status", {})
+        if not premium.get("is_premium"):
+            return False
+        end_date = datetime.fromisoformat(premium.get("end_date"))
+        return now < end_date
+
+    async def remove_premium(self, user_id: int):
+        """Remove premium from user"""
+        premium_status = {
+            "is_premium": False,
+            "start_date": None,
+            "end_date": None
+        }
+        await self.col.update_one(
+            {"id": int(user_id)},
+            {"$set": {"premium_status": premium_status}}
+        )
+
+    async def total_premium_users_count(self) -> int:
+        """Count all users who have premium field"""
+        return await self.col.count_documents({"premium_status.is_premium": True})
+
+    async def total_active_premium_users_count(self) -> int:
+        """Count users with active (not expired) premium"""
+        tz = pytz.timezone("Asia/Kolkata")
+        now = datetime.now(tz)
+        return await self.col.count_documents({
+            "premium_status.is_premium": True,
+            "premium_status.end_date": {"$gt": str(now)}
+        })
+        
+    async def get_premium_days_left(self, user_id: int) -> int:
+        """Return how many days of premium are left for a user"""
+        tz = pytz.timezone("Asia/Kolkata")
+        now = datetime.now(tz)
+        user = await self.col.find_one({"id": int(user_id)})
+        if not user or "premium_status" not in user:
+            return 0
+        premium = user["premium_status"]
+        if not premium.get("is_premium"):
+            return 0
+        end_date = datetime.fromisoformat(premium.get("end_date"))
+        if now >= end_date:
+            return 0
+        days_left = (end_date - now).days
+        return days_left
+        
     async def add_user(self, id, name):
         user = self.new_user(id, name)
         await self.col.insert_one(user)
