@@ -575,7 +575,6 @@ async def premium_user(bot, user_id, days):
             await db.add_user(user.id, user.first_name)
             await bot.send_message(LOG_CHANNEL, script.LOG_TEXT_P.format(user.id, user.mention))
         tz = pytz.timezone('Asia/Kolkata')
-        days = int(args[2]) if len(args) > 2 else 30
         hours = days * 24
         date_var = datetime.now(tz)+timedelta(hours=hours)
         temp_time = date_var.strftime("%H:%M:%S")
