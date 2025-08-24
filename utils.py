@@ -140,15 +140,7 @@ async def get_poster(query, bulk=False, id=False, file=None):
         'rating': str(movie.get("rating")),
         'url':f'https://www.imdb.com/title/tt{movieid}'
     }
-
-def safe_base64_decode(data):
-    try:
-        padded_data = data + "=" * (-len(data) % 4)
-        return base64.urlsafe_b64decode(padded_data).decode("ascii")
-    except Exception as e:
-        logger.warning(f"Base64 decode failed for: {data} | Error: {e}")
-        return None
-        
+   
 def list_to_str(k):
     if not k: return "N/A"
     elif len(k) == 1: return str(k[0])
@@ -364,39 +356,7 @@ def extract_time(time_val):
     else:
         return None
 
-def extract_commands_from_file(file_path):
-    commands = []
-    with open(file_path, "r", encoding="utf-8") as f:
-        lines = f.readlines()
-        for line in lines:
-            if "filters.command" in line:
-                cmd_match = re.search(r"filters\.command\((.*?)\)", line)
-                if cmd_match:
-                    raw_cmds = cmd_match.group(1)
-                    try:
-                        # Convert string like "['filter', 'add']" to actual list
-                        cmd_list = eval(raw_cmds, {"__builtins__": {}})
-                    except:
-                        cmd_list = [raw_cmds.strip("'\"")]
-                    if not isinstance(cmd_list, list):
-                        cmd_list = [cmd_list]
 
-                    is_admin = "filters.user(ADMINS)" in line or "filters.user(ADMINS)" in line.replace(" ", "")
-                    commands.append((cmd_list, is_admin))
-    return commands
-
-
-def list_commands_in_project(directory):
-    all_commands = {}
-    for root, dirs, files in os.walk(directory):
-        for file in files:
-            if file.endswith(".py"):
-                file_path = os.path.join(root, file)
-                commands = extract_commands_from_file(file_path)
-                if commands:
-                    all_commands[file_path] = commands
-    return all_commands
-    
 async def admin_check(message: Message) -> bool:
     if not message.from_user: return False
     if message.chat.type not in [enums.ChatType.GROUP, enums.ChatType.SUPERGROUP]: return False
@@ -528,6 +488,7 @@ async def get_verify_status(bot, userid):
         return status
     except Exception as e:
         logging.error(f"❌ Error occurred while verifying user {userid}: {e}", exc_info=True)
+        # Optional: send a message to admin or log channel
         await bot.send_message(LOG_CHANNEL, f"⚠️ Error verifying user `{userid}`:\n`{str(e)}`")
 
 async def send_verification_log(bot, userid, date_temp, time_temp):
@@ -540,52 +501,19 @@ async def send_verification_log(bot, userid, date_temp, time_temp):
         # Optional: send a message to admin or log channel
         await bot.send_message(LOG_CHANNEL, f"⚠️ Error verifying user `{userid}`:\n`{str(e)}`")
 
-async def update_verify_status(bot, user_id, date_temp, time_temp, temp_days):
-    try:
-        status = await get_verify_status(bot, user_id)   # use same variable name
-        status["date"] = date_temp
-        status["time"] = time_temp
-        status["days"] = str(temp_days)  # store as string for consistency
-        temp.VERIFY[user_id] = status   # fixed: consistent variable name
-        await db.update_verification(user_id, date_temp, time_temp, temp_days)
-        await send_verification_log(bot, user_id, date_temp, time_temp)
-    except Exception as e:
-        logging.error(f"❌ Error occurred while verifying user {user_id}: {e}", exc_info=True)
-        await bot.send_message(LOG_CHANNEL, f"⚠️ Error verifying user `{user_id}`:\n`{str(e)}`")
-        
-
-
-async def update_premium_status(bot, userid, date_temp, time_temp, temp_days):
+async def update_verify_status(bot, userid, date_temp, time_temp):
     try:
         status = await get_verify_status(bot, userid)
         status["date"] = date_temp
         status["time"] = time_temp
-        status["days"] = str(temp_days) 
         temp.VERIFY[userid] = status
-        await db.update_verification(userid, date_temp, time_temp, temp_days)
+        await db.update_verification(userid, date_temp, time_temp)
         await send_verification_log(bot, userid, date_temp, time_temp)
     except Exception as e:
         logging.error(f"❌ Error occurred while verifying user {userid}: {e}", exc_info=True)
+        # Optional: send a message to admin or log channel
         await bot.send_message(LOG_CHANNEL, f"⚠️ Error verifying user `{userid}`:\n`{str(e)}`")
 
-async def premium_user(bot, user_id, days):
-    try:
-        user = await bot.get_users(int(user_id))
-        if not await db.is_user_exist(user.id):
-            await db.add_user(user.id, user.first_name)
-            await bot.send_message(LOG_CHANNEL, script.LOG_TEXT_P.format(user.id, user.mention))
-        tz = pytz.timezone('Asia/Kolkata')
-        hours = days * 24
-        date_var = datetime.now(tz)+timedelta(hours=hours)
-        temp_time = date_var.strftime("%H:%M:%S")
-        date_var, time_var = str(date_var).split(" ")
-        await update_premium_status(bot, user.id, date_var, temp_time, days)
-        return date_var, temp_time
-    except Exception as e:
-        logging.error(f"❌ Error occurred while upgrading user {user_id} to premium: {e}", exc_info=True)
-        await bot.send_message(LOG_CHANNEL, f"⚠️ Error upgrading user `{user_id}`:\n`{str(e)}`")
-        return None, None
-        
 async def verify_user(bot, userid, token):
     try:
         user = await bot.get_users(int(userid))
@@ -594,16 +522,15 @@ async def verify_user(bot, userid, token):
             await bot.send_message(LOG_CHANNEL, script.LOG_TEXT_P.format(user.id, user.mention))
         TOKENS[user.id] = {token: True}
         tz = pytz.timezone('Asia/Kolkata')
-        hours = 12
-        date_var = datetime.now(tz) + timedelta(hours=hours)
-        days = ceil(hours / 24)  # → 12h becomes 1 day
+        date_var = datetime.now(tz)+timedelta(hours=12)
         temp_time = date_var.strftime("%H:%M:%S")
         date_var, time_var = str(date_var).split(" ")
-        await update_verify_status(bot, user.id, date_var, temp_time, days)
+        await update_verify_status(bot, user.id, date_var, temp_time)
     except Exception as e:
-        logging.error(f"❌ Error occurred while verifying user {userid}: {e}", exc_info=True)
-        await bot.send_message(LOG_CHANNEL, f"⚠️ Error verifying user `{userid}`:\n`{str(e)}`")
-         
+            logging.error(f"❌ Error occurred while verifying user {userid}: {e}", exc_info=True)
+            # Optional: send a message to admin or log channel
+            await bot.send_message(LOG_CHANNEL, f"⚠️ Error verifying user `{userid}`:\n`{str(e)}`")
+
 async def check_verification(bot, userid):
     try:
         user = await bot.get_users(int(userid))
