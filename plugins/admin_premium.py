@@ -16,9 +16,8 @@ async def add_premium(client, message: Message):
 
         user_id = int(args[1])
         days = int(args[2]) if len(args) > 2 else 30
-        hours = days * 24
 
-        expiry_date, expiry_time = await premium_user(client, user_id, hours)
+        expiry_date, expiry_time = await premium_user(client, user_id, days)
 
         if not expiry_date:
             return await message.reply("❌ Failed to upgrade user to premium.", quote=True)
