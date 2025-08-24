@@ -66,50 +66,34 @@ async def remove_premium(client, message: Message):
     except Exception as e:
         await message.reply(f"⚠️ Error: `{e}`")
 
-@Client.on_message(filters.command("checkpremium"))
-async def check_premium(client, message: Message):
+# 👤 User Command - Check Own Premium
+@Client.on_message(filters.command("mypremium"))
+async def my_premium(client, message: Message):
     try:
-        args = message.text.split()
-        sender_id = message.from_user.id
-        sender_name = message.from_user.mention
-        is_admin = sender_id in ADMINS
-
-        # Get target user ID
-        if len(args) == 1:
-            user_id = sender_id
-            user_name = sender_name
-        else:
-            user_id = int(args[1])
-            if not is_admin and user_id != sender_id:
-                return await message.reply("❌ You are not allowed to check other users' premium status.")
-            try:
-                target = await client.get_users(user_id)
-                user_name = target.mention
-            except:
-                user_name = "Unknown"
+        user_id = message.from_user.id
+        user_name = message.from_user.mention
 
         # Fetch premium data
         status = await db.get_verified(user_id)
         if not status:
-            return await message.reply("⚠️ No premium data found for this user.")
+            return await message.reply("⚠️ No premium data found for you.")
 
-        # Timezone-aware calculation
         tz = pytz.timezone("Asia/Kolkata")
         exp_dt = tz.localize(datetime.strptime(status["date"] + " " + status["time"], "%Y-%m-%d %H:%M:%S"))
         now = datetime.now(tz)
-        is_active = exp_dt > now
 
-        # Check activation date & "Not Premium" rule
+        # Status check
+        is_active = exp_dt > now
         activation_dt = tz.localize(datetime.strptime(status["activation_date"] + " " + status["activation_time"], "%Y-%m-%d %H:%M:%S")) \
             if "activation_date" in status and "activation_time" in status else None
-        
+
         not_premium = False
         if activation_dt:
             total_duration = (exp_dt - activation_dt).days
             if total_duration <= 7:
                 not_premium = True
 
-        # Calculate time left if active
+        # Time left
         if is_active and not not_premium:
             delta = exp_dt - now
             days = delta.days
@@ -121,16 +105,72 @@ async def check_premium(client, message: Message):
         else:
             time_left = "Expired ❌"
 
-        # Format dates
-        last_on = datetime.strptime(status["date"] + " " + status["time"], "%Y-%m-%d %H:%M:%S").strftime("%d/%m/%Y, %I:%M %p")
         expires_on = exp_dt.strftime("%d/%m/%Y, %I:%M %p")
 
-        # Reply with new format
+        await message.reply(
+            f"👤 **User:** {user_name}\n"
+            f"💎 **Premium Status:** "
+            f"{'😄 Active' if is_active and not not_premium else ('🚫 Not Premium' if not_premium else '😔 Expired')}\n"
+            f"📌 **Expires:** `{expires_on}`\n"
+            f"⏳ **Time Left:** `{time_left}`"
+        )
+
+    except Exception as e:
+        await message.reply(f"⚠️ Error: `{e}`")
+
+
+# 🛠️ Admin Command - Check Any User Premium
+@Client.on_message(filters.command("checkpremium") & filters.user(ADMINS))
+async def check_premium(client, message: Message):
+    try:
+        args = message.text.split()
+        if len(args) < 2:
+            return await message.reply("❌ Usage: /checkuserpremium user_id")
+
+        user_id = int(args[1])
+        try:
+            target = await client.get_users(user_id)
+            user_name = target.mention
+        except:
+            user_name = "Unknown"
+
+        status = await db.get_verified(user_id)
+        if not status:
+            return await message.reply("⚠️ No premium data found for this user.")
+
+        tz = pytz.timezone("Asia/Kolkata")
+        exp_dt = tz.localize(datetime.strptime(status["date"] + " " + status["time"], "%Y-%m-%d %H:%M:%S"))
+        now = datetime.now(tz)
+
+        # Status check
+        is_active = exp_dt > now
+        activation_dt = tz.localize(datetime.strptime(status["activation_date"] + " " + status["activation_time"], "%Y-%m-%d %H:%M:%S")) \
+            if "activation_date" in status and "activation_time" in status else None
+
+        not_premium = False
+        if activation_dt:
+            total_duration = (exp_dt - activation_dt).days
+            if total_duration <= 7:
+                not_premium = True
+
+        # Time left
+        if is_active and not not_premium:
+            delta = exp_dt - now
+            days = delta.days
+            hours, remainder = divmod(delta.seconds, 3600)
+            minutes = remainder // 60
+            time_left = f"{days}d {hours}h {minutes}m"
+        elif not_premium:
+            time_left = "Not Premium 🚫"
+        else:
+            time_left = "Expired ❌"
+
+        expires_on = exp_dt.strftime("%d/%m/%Y, %I:%M %p")
+
         await message.reply(
             f"👤 **User:** `{user_id}` ({user_name})\n"
             f"💎 **Premium Status:** "
             f"{'😄 Active' if is_active and not not_premium else ('🚫 Not Premium' if not_premium else '😔 Expired')}\n"
-            f"🗓️ **Last On:** `{last_on}`\n"
             f"📌 **Expires:** `{expires_on}`\n"
             f"⏳ **Time Left:** `{time_left}`"
         )
