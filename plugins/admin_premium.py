@@ -8,7 +8,7 @@ from pyrogram.types import (
 from datetime import datetime, timedelta
 import pytz
 
-from info import ADMINS, LOG_CHANNEL 
+from info import ADMINS, LOG_CHANNEL
 from database.users_chats_db import db
 
 
@@ -16,68 +16,9 @@ TZ = pytz.timezone("Asia/Kolkata")
 
 
 # ------------------------------
-# HELPERS
-# ------------------------------
-def make_check_button():
-    return InlineKeyboardMarkup(
-        [[InlineKeyboardButton("✨ Check Premium", callback_data="check_premium_user")]]
-    )
-
-
-def make_buy_buttons():
-    return InlineKeyboardMarkup(
-        [
-            [InlineKeyboardButton("💎 Buy Premium", callback_data="buy_premium")],
-            [InlineKeyboardButton("❌ Cancel", callback_data="cancel_action")],
-        ]
-    )
-
-
-# Shared function to show premium status (works for both commands and callbacks)
-async def show_premium_status(client, reply_target, user_id: int, cq: CallbackQuery = None):
-    if await db.is_premium(user_id):
-        days = await db.get_premium_days_left(user_id) or 0
-        try:
-            expiry = await db.get_premium_expiry(user_id)
-            expiry_str = expiry.astimezone(TZ).strftime("%d %B %Y, %I:%M %p")
-        except Exception:
-            expiry_str = "Unknown"
-
-        text = (
-            f"🌟 **Premium Status** 🌟\n\n"
-            f"👤 User ID: `{user_id}`\n"
-            f"✨ Status: ✅ Active\n"
-            f"⏳ Days Left: **{days}**\n"
-            f"📅 Expiry Date: **{expiry_str}**\n\n"
-            f"🚀 Enjoy your premium benefits!"
-        )
-        reply_markup = None
-
-    else:
-        text = (
-            "😢 You are not a premium user.\n\n"
-            "💡 Upgrade now to unlock all premium features!"
-        )
-        reply_markup = make_buy_buttons()
-
-    if cq:
-        try:
-            await cq.answer()
-        except Exception:
-            pass
-        await cq.message.reply_text(text, reply_markup=reply_markup, quote=True)
-    else:
-        await reply_target.reply_text(text, reply_markup=reply_markup, quote=True)
-
-
-# ------------------------------
-# LOG FUNCTION
+# Premium Logging
 # ------------------------------
 async def log_premium_action(client, action: str, target_user: int, days: int = None, admin: int = None):
-    """
-    Logs premium actions with detailed info:
-    action: "add", "edit", "extend", "remove"
-    """
     try:
         now = datetime.now(TZ).strftime("%d %B %Y, %I:%M %p")
 
@@ -96,17 +37,13 @@ async def log_premium_action(client, action: str, target_user: int, days: int = 
         except Exception:
             admin_name, admin_username = "Unknown", "❌"
 
-        # get expiry & days left (after update)
-        try:
-            expiry = await db.get_premium_expiry(target_user)
-            expiry_str = expiry.astimezone(TZ).strftime("%d %B %Y, %I:%M %p")
-        except Exception:
-            expiry_str = "Unknown"
-
+        # calculate expiry
         try:
             days_left = await db.get_premium_days_left(target_user) or 0
+            expiry = datetime.now(TZ) + timedelta(days=int(days_left))
+            expiry_str = expiry.strftime("%d %B %Y, %I:%M %p")
         except Exception:
-            days_left = "?"
+            days_left, expiry_str = "?", "Unknown"
 
         if action == "add":
             text = (
@@ -165,270 +102,210 @@ async def log_premium_action(client, action: str, target_user: int, days: int = 
 
 
 # ------------------------------
-# 1) Add Premium (Admin only)
+# Add Premium
 # ------------------------------
 @Client.on_message(filters.command("addpremium") & filters.user(ADMINS))
-async def cmd_add_premium(client: Client, message: Message):
+async def add_premium(client: Client, message: Message):
     try:
         args = message.text.split()
         if len(args) < 3:
-            return await message.reply("⚠️ Usage: /addpremium user_id days", quote=True)
+            return await message.reply("⚠️ Usage: /addpremium user_id days")
 
         user_id = int(args[1])
         input_days = int(args[2])
         if input_days <= 0:
-            return await message.reply("⚠️ Days must be a positive number.", quote=True)
+            return await message.reply("⚠️ Days must be a positive number.")
 
         if await db.is_premium(user_id):
             days_left = await db.get_premium_days_left(user_id) or 0
             keyboard = InlineKeyboardMarkup(
                 [
                     [
-                        InlineKeyboardButton(
-                            "➕ Add More Days", callback_data=f"add_days:{user_id}:{input_days}"
-                        ),
-                        InlineKeyboardButton(
-                            "✏️ Edit Premium Days", callback_data=f"edit_days:{user_id}:{input_days}"
-                        ),
+                        InlineKeyboardButton("➕ Add More Days", callback_data=f"add_days:{user_id}:{input_days}"),
+                        InlineKeyboardButton("✏️ Edit Premium Days", callback_data=f"edit_days:{user_id}:{input_days}"),
                     ],
                     [InlineKeyboardButton("❌ Cancel", callback_data="cancel_action")],
                 ]
             )
             return await message.reply(
-                (
-                    f"⚠️ User `{user_id}` is already premium.\n"
-                    f"⏳ Current days left: **{int(days_left)}**\n\n"
-                    "Choose an action:"
-                ),
+                f"⚠️ User `{user_id}` already premium.\n⏳ Days left: **{days_left}**\n\nChoose an action:",
                 reply_markup=keyboard,
-                quote=True,
             )
 
         keyboard = InlineKeyboardMarkup(
-            [
-                [
-                    InlineKeyboardButton(
-                        "✅ Confirm Add Premium", callback_data=f"confirm_add:{user_id}:{input_days}"
-                    ),
-                    InlineKeyboardButton("❌ Cancel", callback_data="cancel_action"),
-                ]
-            ]
+            [[
+                InlineKeyboardButton("✅ Confirm Add Premium", callback_data=f"confirm_add:{user_id}:{input_days}"),
+                InlineKeyboardButton("❌ Cancel", callback_data="cancel_action"),
+            ]]
         )
         await message.reply(
-            f"🤔 User `{user_id}` is **not premium**.\nDo you want to add premium for **{input_days} days**?",
+            f"🤔 User `{user_id}` is not premium.\nAdd for **{input_days} days**?",
             reply_markup=keyboard,
-            quote=True,
         )
-
     except Exception as e:
-        await message.reply(f"❌ Error: {e}", quote=True)
+        await message.reply(f"❌ Error: {e}")
 
 
 # ------------------------------
-# 2) Remove Premium (Admin only)
+# Remove Premium
 # ------------------------------
 @Client.on_message(filters.command("removepremium") & filters.user(ADMINS))
-async def cmd_remove_premium(client: Client, message: Message):
+async def remove_premium(client: Client, message: Message):
     try:
         args = message.text.split()
         if len(args) < 2:
-            return await message.reply("⚠️ Usage: /removepremium user_id", quote=True)
+            return await message.reply("⚠️ Usage: /removepremium user_id")
 
         user_id = int(args[1])
         keyboard = InlineKeyboardMarkup(
-            [
-                [
-                    InlineKeyboardButton("✅ Confirm Remove", callback_data=f"confirm_remove:{user_id}"),
-                    InlineKeyboardButton("❌ Cancel", callback_data="cancel_action"),
-                ]
-            ]
+            [[
+                InlineKeyboardButton("✅ Confirm Remove", callback_data=f"confirm_remove:{user_id}"),
+                InlineKeyboardButton("❌ Cancel", callback_data="cancel_action"),
+            ]]
         )
         await message.reply(
-            f"⚠️ Are you sure you want to remove premium from user `{user_id}`?",
+            f"⚠️ Remove premium from user `{user_id}`?",
             reply_markup=keyboard,
-            quote=True,
         )
-
     except Exception as e:
-        await message.reply(f"❌ Error: {e}", quote=True)
+        await message.reply(f"❌ Error: {e}")
 
 
 # ------------------------------
-# 3) Totals (Admin only)
+# Premium Stats
 # ------------------------------
 @Client.on_message(filters.command("totalpremium") & filters.user(ADMINS))
-async def cmd_total_premium(client: Client, message: Message):
+async def total_premium(client: Client, message: Message):
     total = await db.total_premium_users_count()
-    await message.reply(f"📊 Total premium users: **{total}**", quote=True)
+    await message.reply(f"📊 Total premium users: **{total}**")
 
 
 @Client.on_message(filters.command("activepremium") & filters.user(ADMINS))
-async def cmd_active_premium(client: Client, message: Message):
+async def active_premium(client: Client, message: Message):
     active = await db.total_active_premium_users_count()
-    await message.reply(f"🔥 Active premium users: **{active}**", quote=True)
+    await message.reply(f"🔥 Active premium users: **{active}**")
 
 
 # ------------------------------
-# 4) Callback: admin actions (add_days / edit_days / confirm_add / confirm_remove)
+# Callback Actions
 # ------------------------------
 @Client.on_callback_query(filters.regex(r"^(add_days|edit_days|confirm_add|confirm_remove):"))
-async def handle_premium_actions(client: Client, cq: CallbackQuery):
+async def premium_actions(client: Client, cq: CallbackQuery):
     try:
         if cq.from_user.id not in ADMINS:
-            await cq.answer("Not allowed.", show_alert=True)
-            return
+            return await cq.answer("Not allowed.", show_alert=True)
 
         data = cq.data.split(":")
         action = data[0]
+        user_id = int(data[1])
 
         if action in ("add_days", "edit_days", "confirm_add"):
-            target_user_id = int(data[1])
-            new_days = int(data[2])
-            if new_days <= 0:
-                await cq.answer("Days must be positive.", show_alert=True)
-                return
-
-            check_markup = make_check_button()
+            days = int(data[2])
+            if days <= 0:
+                return await cq.answer("Days must be positive.", show_alert=True)
 
             if action == "add_days":
-                left = await db.get_premium_days_left(target_user_id) or 0
-                total_days = int(left) + int(new_days)
-                await db.add_premium(target_user_id, total_days)
-
-                await cq.message.edit_text(
-                    f"✅ Added **{new_days} days**.\n"
-                    f"🆕 Premium for `{target_user_id}` is now **{total_days} days** from today."
-                )
+                left = await db.get_premium_days_left(user_id) or 0
+                total_days = left + days
+                await db.add_premium(user_id, total_days)
+                await cq.message.edit_text(f"✅ Added {days} days.\nTotal: {total_days} days.")
                 await cq.answer("Premium extended!")
-
-                await log_premium_action(client, "extend", target_user_id, new_days, cq.from_user.id)
-
-                try:
-                    await client.send_message(
-                        target_user_id,
-                        f"🎉 Your Premium has been extended!\n⏳ Total days left: **{total_days}**",
-                        reply_markup=check_markup,
-                    )
-                except Exception:
-                    pass
+                await log_premium_action(client, "extend", user_id, days, cq.from_user.id)
 
             elif action == "edit_days":
-                await db.add_premium(target_user_id, new_days)
-                await cq.message.edit_text(
-                    f"✏️ Premium updated.\n🆕 User `{target_user_id}` now has **{new_days} days**."
-                )
+                await db.add_premium(user_id, days)
+                await cq.message.edit_text(f"✏️ Updated premium to {days} days.")
                 await cq.answer("Premium updated!")
-
-                await log_premium_action(client, "edit", target_user_id, new_days, cq.from_user.id)
-
-                try:
-                    await client.send_message(
-                        target_user_id,
-                        f"✏️ Your premium has been updated!\n⏳ New duration: **{new_days} days**",
-                        reply_markup=check_markup,
-                    )
-                except Exception:
-                    pass
+                await log_premium_action(client, "edit", user_id, days, cq.from_user.id)
 
             elif action == "confirm_add":
-                await db.add_premium(target_user_id, new_days)
-                await cq.message.edit_text(
-                    f"✅ Premium activated!\n🆕 User `{target_user_id}` now has **{new_days} days**."
-                )
+                await db.add_premium(user_id, days)
+                await cq.message.edit_text(f"✅ Premium activated for {days} days.")
                 await cq.answer("Premium added!")
-
-                await log_premium_action(client, "add", target_user_id, new_days, cq.from_user.id)
-
-                try:
-                    await client.send_message(
-                        target_user_id,
-                        f"🎉 Welcome to Premium!\n⏳ Active for **{new_days} days**.",
-                        reply_markup=check_markup,
-                    )
-                except Exception:
-                    pass
+                await log_premium_action(client, "add", user_id, days, cq.from_user.id)
 
         elif action == "confirm_remove":
-            target_user_id = int(data[1])
-            await db.remove_premium(target_user_id)
-            await cq.message.edit_text(f"🚫 Premium removed from `{target_user_id}`.")
+            await db.remove_premium(user_id)
+            await cq.message.edit_text(f"🚫 Premium removed from {user_id}.")
             await cq.answer("Premium removed!")
-
-            await log_premium_action(client, "remove", target_user_id, None, cq.from_user.id)
-
-            try:
-                await client.send_message(
-                    target_user_id,
-                    "⚠️ Your premium has been removed."
-                )
-            except Exception:
-                pass
+            await log_premium_action(client, "remove", user_id, None, cq.from_user.id)
 
     except Exception as e:
         try:
-            await cq.answer("Something went wrong.", show_alert=True)
-        except Exception:
-            pass
-        try:
             await cq.message.edit_text(f"❌ Error: {e}")
-        except Exception:
+        except:
             pass
 
 
 # ------------------------------
-# 5) Cancel Button
+# Cancel Action
 # ------------------------------
 @Client.on_callback_query(filters.regex(r"^cancel_action$"))
-async def handle_cancel(client: Client, cq: CallbackQuery):
-    try:
-        await cq.answer("❌ Cancelled!")
-    except Exception:
-        pass
+async def cancel_action(client: Client, cq: CallbackQuery):
+    await cq.answer("❌ Cancelled!")
     try:
         await cq.message.edit_text("❌ Action cancelled.")
-    except Exception:
-        try:
-            await cq.message.reply_text("❌ Action cancelled.")
-        except Exception:
-            pass
-
-
-# ------------------------------
-# 6) Buy Premium (user path)
-# ------------------------------
-@Client.on_callback_query(filters.regex(r"^buy_premium$"))
-async def handle_buy_premium(client: Client, cq: CallbackQuery):
-    try:
-        await cq.answer()
-    except Exception:
+    except:
         pass
 
-    await cq.message.reply_text(
-        "💎 To buy premium, please contact Admin or use the available payment methods.",
-        reply_markup=InlineKeyboardMarkup(
-            [
-                [InlineKeyboardButton("👨‍💻 Contact Admin", url="https://t.me/YourAdminUsername")],
-                [InlineKeyboardButton("❌ Cancel", callback_data="cancel_action")],
-            ]
-        ),
-        quote=True,
-    )
-
 
 # ------------------------------
-# 7) Check Premium (button)
-# ------------------------------
-@Client.on_callback_query(filters.regex(r"^check_premium_user$"))
-async def handle_check_premium_btn(client: Client, cq: CallbackQuery):
-    user_id = cq.from_user.id
-    await show_premium_status(client, cq.message, user_id, cq)
-
-
-# ------------------------------
-# 8) Check Premium (command)
+# Check Premium (command + button)
 # ------------------------------
 @Client.on_message(filters.command("checkpremium"))
-async def handle_check_premium_cmd(client: Client, message: Message):
+async def check_premium_cmd(client: Client, message: Message):
     user_id = message.from_user.id
-    await show_premium_status(client, message, user_id)
+    if await db.is_premium(user_id):
+        days = await db.get_premium_days_left(user_id) or 0
+        expiry = datetime.now(TZ) + timedelta(days=int(days))
+        expiry_str = expiry.strftime("%d %B %Y, %I:%M %p")
+        text = (
+            f"🌟 **Premium Status** 🌟\n\n"
+            f"👤 User ID: `{user_id}`\n"
+            f"✨ Status: ✅ Active\n"
+            f"⏳ Days Left: **{days}**\n"
+            f"📅 Expiry Date: **{expiry_str}**"
+        )
+        await message.reply(text)
+    else:
+        keyboard = InlineKeyboardMarkup(
+            [[InlineKeyboardButton("💎 Buy Premium", callback_data="buy_premium")],
+             [InlineKeyboardButton("❌ Cancel", callback_data="cancel_action")]]
+        )
+        await message.reply("😢 You are not a premium user.\n💡 Upgrade now!", reply_markup=keyboard)
+
+
+@Client.on_callback_query(filters.regex(r"^check_premium_user$"))
+async def check_premium_btn(client: Client, cq: CallbackQuery):
+    user_id = cq.from_user.id
+    if await db.is_premium(user_id):
+        days = await db.get_premium_days_left(user_id) or 0
+        expiry = datetime.now(TZ) + timedelta(days=int(days))
+        expiry_str = expiry.strftime("%d %B %Y, %I:%M %p")
+        text = (
+            f"🌟 **Premium Status** 🌟\n\n"
+            f"👤 User ID: `{user_id}`\n"
+            f"✨ Status: ✅ Active\n"
+            f"⏳ Days Left: **{days}**\n"
+            f"📅 Expiry Date: **{expiry_str}**"
+        )
+        await cq.message.reply(text)
+    else:
+        keyboard = InlineKeyboardMarkup(
+            [[InlineKeyboardButton("💎 Buy Premium", callback_data="buy_premium")],
+             [InlineKeyboardButton("❌ Cancel", callback_data="cancel_action")]]
+        )
+        await cq.message.reply("😢 You are not a premium user.\n💡 Upgrade now!", reply_markup=keyboard)
+
+
+# ------------------------------
+# Buy Premium
+# ------------------------------
+@Client.on_callback_query(filters.regex(r"^buy_premium$"))
+async def buy_premium(client: Client, cq: CallbackQuery):
+    keyboard = InlineKeyboardMarkup(
+        [[InlineKeyboardButton("👨‍💻 Contact Admin", url="https://t.me/YourAdminUsername")],
+         [InlineKeyboardButton("❌ Cancel", callback_data="cancel_action")]]
+    )
+    await cq.message.reply("💎 To buy premium, contact admin.", reply_markup=keyboard)
     
