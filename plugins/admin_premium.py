@@ -17,7 +17,7 @@ async def add_premium(client: Client, message: Message):
         if input_days <= 0:
             return await message.reply("⚠️ Days must be a positive number.", quote=True)
 
-        # already premium? offer choices
+        # already premium? → offer choices
         if await db.is_premium(user_id):
             days_left = await db.get_premium_days_left(user_id)
             days_left = int(days_left or 0)
@@ -33,6 +33,12 @@ async def add_premium(client: Client, message: Message):
                             "✏️ Edit Premium Days",
                             callback_data=f"edit_days:{user_id}:{input_days}"
                         ),
+                    ],
+                    [
+                        InlineKeyboardButton(
+                            "❌ Cancel",
+                            callback_data="cancel_action"
+                        )
                     ]
                 ]
             )
@@ -46,10 +52,25 @@ async def add_premium(client: Client, message: Message):
                 quote=True,
             )
 
-        # not premium → create fresh premium with given days
-        await db.add_premium(user_id, input_days)
+        # not premium → confirm first
+        keyboard = InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton(
+                        "✅ Confirm Add Premium",
+                        callback_data=f"confirm_add:{user_id}:{input_days}"
+                    ),
+                    InlineKeyboardButton(
+                        "❌ Cancel",
+                        callback_data="cancel_action"
+                    )
+                ]
+            ]
+        )
         await message.reply(
-            f"✅ Added premium to user `{user_id}` for {input_days} days.",
+            f"🤔 User `{user_id}` is **not premium**.\n"
+            f"Do you want to add premium for **{input_days} days**?",
+            reply_markup=keyboard,
             quote=True,
         )
 
@@ -68,7 +89,7 @@ async def check_premium(client: Client, message: Message):
         await message.reply("😢 You are not a premium user.", quote=True)
 
 
-# 3) Remove Premium (Admin Only)
+# 3) Remove Premium (Admin Only, now with confirm)
 @Client.on_message(filters.command("removepremium") & filters.user(ADMINS))
 async def remove_premium(client: Client, message: Message):
     try:
@@ -77,8 +98,28 @@ async def remove_premium(client: Client, message: Message):
             return await message.reply("⚠️ Usage: /removepremium user_id", quote=True)
 
         user_id = int(args[1])
-        await db.remove_premium(user_id)
-        await message.reply(f"🚫 Premium removed from user `{user_id}`.", quote=True)
+
+        # confirm buttons
+        keyboard = InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton(
+                        "✅ Confirm Remove",
+                        callback_data=f"confirm_remove:{user_id}"
+                    ),
+                    InlineKeyboardButton(
+                        "❌ Cancel",
+                        callback_data="cancel_action"
+                    )
+                ]
+            ]
+        )
+        await message.reply(
+            f"⚠️ Are you sure you want to remove premium from user `{user_id}`?",
+            reply_markup=keyboard,
+            quote=True,
+        )
+
     except Exception as e:
         await message.reply(f"❌ Error: {str(e)}", quote=True)
 
@@ -98,42 +139,62 @@ async def active_premium(client: Client, message: Message):
 
 
 # 🔔 Inline button callbacks (admins only)
-@Client.on_callback_query(filters.regex(r"^(add_days|edit_days):\d+:\d+$"))
+@Client.on_callback_query(filters.regex(r"^(add_days|edit_days|confirm_add|confirm_remove|cancel_action):"))
 async def handle_premium_buttons(client: Client, cq: CallbackQuery):
     try:
-        # only admins can press these buttons
         if cq.from_user.id not in ADMINS:
             await cq.answer("Not allowed.", show_alert=True)
             return
 
-        action, user_id_str, new_days_str = cq.data.split(":")
-        target_user_id = int(user_id_str)
-        new_days = int(new_days_str)
+        data = cq.data.split(":")
+        action = data[0]
 
-        if new_days <= 0:
-            await cq.answer("Days must be positive.", show_alert=True)
-            return
+        if action in ["add_days", "edit_days", "confirm_add"]:
+            target_user_id = int(data[1])
+            new_days = int(data[2])
 
-        if action == "add_days":
-            # add on top: total = left + new
-            left = await db.get_premium_days_left(target_user_id)
-            left = int(left or 0)
-            total_days = left + new_days
-            await db.add_premium(target_user_id, total_days)
+            if new_days <= 0:
+                await cq.answer("Days must be positive.", show_alert=True)
+                return
+
+            if action == "add_days":
+                left = await db.get_premium_days_left(target_user_id)
+                left = int(left or 0)
+                total_days = left + new_days
+                await db.add_premium(target_user_id, total_days)
+                await cq.message.edit_text(
+                    f"✅ Added **{new_days} days** on top.\n"
+                    f"🆕 Premium for user `{target_user_id}` is now **{total_days} days** from today."
+                )
+                await cq.answer("Premium extended!")
+
+            elif action == "edit_days":
+                await db.add_premium(target_user_id, new_days)
+                await cq.message.edit_text(
+                    f"✏️ Premium updated.\n"
+                    f"🆕 User `{target_user_id}` now has **{new_days} days** from today."
+                )
+                await cq.answer("Premium updated!")
+
+            elif action == "confirm_add":
+                await db.add_premium(target_user_id, new_days)
+                await cq.message.edit_text(
+                    f"✅ Premium activated!\n"
+                    f"🆕 User `{target_user_id}` now has **{new_days} days** from today."
+                )
+                await cq.answer("Premium added!")
+
+        elif action == "confirm_remove":
+            target_user_id = int(data[1])
+            await db.remove_premium(target_user_id)
             await cq.message.edit_text(
-                f"✅ Added **{new_days} days** on top.\n"
-                f"🆕 Premium for user `{target_user_id}` is now **{total_days} days** from today."
+                f"🚫 Premium removed from user `{target_user_id}`."
             )
-            await cq.answer("Premium extended!")
+            await cq.answer("Premium removed!")
 
-        elif action == "edit_days":
-            # overwrite with exactly new_days
-            await db.add_premium(target_user_id, new_days)
-            await cq.message.edit_text(
-                f"✏️ Premium updated.\n"
-                f"🆕 User `{target_user_id}` now has **{new_days} days** from today."
-            )
-            await cq.answer("Premium updated!")
+        elif action == "cancel_action":
+            await cq.message.edit_text("❌ Action cancelled.")
+            await cq.answer("Cancelled!")
 
     except Exception as e:
         try:
