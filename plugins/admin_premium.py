@@ -1,104 +1,13 @@
 from pyrogram import Client, filters
-from pyrogram.types import (
-    Message,
-    InlineKeyboardMarkup,
-    InlineKeyboardButton,
-    CallbackQuery,
-)
+from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from datetime import datetime, timedelta
 import pytz
 
 from info import ADMINS, LOG_CHANNEL
 from database.users_chats_db import db
-
+from scripts import script   # import big texts
 
 TZ = pytz.timezone("Asia/Kolkata")
-
-
-# ------------------------------
-# Premium Logging
-# ------------------------------
-async def log_premium_action(client, action: str, target_user: int, days: int = None, admin: int = None):
-    try:
-        now = datetime.now(TZ).strftime("%d %B %Y, %I:%M %p")
-
-        # fetch user and admin info
-        try:
-            target = await client.get_users(target_user)
-            target_name = f"{target.first_name or ''} {target.last_name or ''}".strip()
-            target_username = f"@{target.username}" if target.username else "❌"
-        except Exception:
-            target_name, target_username = "Unknown", "❌"
-
-        try:
-            admin_user = await client.get_users(admin)
-            admin_name = f"{admin_user.first_name or ''} {admin_user.last_name or ''}".strip()
-            admin_username = f"@{admin_user.username}" if admin_user.username else "❌"
-        except Exception:
-            admin_name, admin_username = "Unknown", "❌"
-
-        # calculate expiry
-        try:
-            days_left = await db.get_premium_days_left(target_user) or 0
-            expiry = datetime.now(TZ) + timedelta(days=int(days_left))
-            expiry_str = expiry.strftime("%d %B %Y, %I:%M %p")
-        except Exception:
-            days_left, expiry_str = "?", "Unknown"
-
-        if action == "add":
-            text = (
-                f"#PremiumAdded ✅\n\n"
-                f"👤 **User:** {target_name} (`{target_user}`)\n"
-                f"🔗 Username: {target_username}\n\n"
-                f"📅 Days Added: **{days}**\n"
-                f"⏳ Days Left: **{days_left}**\n"
-                f"🗓 Expiry: **{expiry_str}**\n\n"
-                f"🛠 **By Admin:** {admin_name} (`{admin}`)\n"
-                f"🔗 Username: {admin_username}\n\n"
-                f"📌 Time: {now}"
-            )
-        elif action == "edit":
-            text = (
-                f"#PremiumEdited ✏️\n\n"
-                f"👤 **User:** {target_name} (`{target_user}`)\n"
-                f"🔗 Username: {target_username}\n\n"
-                f"🆕 New Days: **{days}**\n"
-                f"⏳ Days Left: **{days_left}**\n"
-                f"🗓 Expiry: **{expiry_str}**\n\n"
-                f"🛠 **By Admin:** {admin_name} (`{admin}`)\n"
-                f"🔗 Username: {admin_username}\n\n"
-                f"📌 Time: {now}"
-            )
-        elif action == "extend":
-            text = (
-                f"#PremiumExtended ➕\n\n"
-                f"👤 **User:** {target_name} (`{target_user}`)\n"
-                f"🔗 Username: {target_username}\n\n"
-                f"➕ Added Days: **{days}**\n"
-                f"⏳ Days Left: **{days_left}**\n"
-                f"🗓 Expiry: **{expiry_str}**\n\n"
-                f"🛠 **By Admin:** {admin_name} (`{admin}`)\n"
-                f"🔗 Username: {admin_username}\n\n"
-                f"📌 Time: {now}"
-            )
-        elif action == "remove":
-            text = (
-                f"#PremiumRemoved 🚫\n\n"
-                f"👤 **User:** {target_name} (`{target_user}`)\n"
-                f"🔗 Username: {target_username}\n\n"
-                f"⏳ Days Left Before Removal: **{days_left}**\n"
-                f"🗓 Expiry: **{expiry_str}**\n\n"
-                f"🛠 **By Admin:** {admin_name} (`{admin}`)\n"
-                f"🔗 Username: {admin_username}\n\n"
-                f"📌 Time: {now}"
-            )
-        else:
-            text = f"#UnknownAction ❓\nAdmin `{admin}` → User `{target_user}` at {now}"
-
-        await client.send_message(LOG_CHANNEL, text)
-
-    except Exception:
-        pass
 
 
 # ------------------------------
@@ -128,7 +37,7 @@ async def add_premium(client: Client, message: Message):
                 ]
             )
             return await message.reply(
-                f"⚠️ User `{user_id}` already premium.\n⏳ Days left: **{days_left}**\n\nChoose an action:",
+                script.ADD_PREMIUM_ALREADY.format(id=user_id, days=days_left),
                 reply_markup=keyboard,
             )
 
@@ -139,7 +48,7 @@ async def add_premium(client: Client, message: Message):
             ]]
         )
         await message.reply(
-            f"🤔 User `{user_id}` is not premium.\nAdd for **{input_days} days**?",
+            script.ADD_PREMIUM_CONFIRM.format(id=user_id, days=input_days),
             reply_markup=keyboard,
         )
     except Exception as e:
@@ -164,7 +73,7 @@ async def remove_premium(client: Client, message: Message):
             ]]
         )
         await message.reply(
-            f"⚠️ Remove premium from user `{user_id}`?",
+            script.REMOVE_PREMIUM_CONFIRM.format(id=user_id),
             reply_markup=keyboard,
         )
     except Exception as e:
@@ -177,17 +86,17 @@ async def remove_premium(client: Client, message: Message):
 @Client.on_message(filters.command("totalpremium") & filters.user(ADMINS))
 async def total_premium(client: Client, message: Message):
     total = await db.total_premium_users_count()
-    await message.reply(f"📊 Total premium users: **{total}**")
+    await message.reply(script.TOTAL_PREMIUM.format(total))
 
 
 @Client.on_message(filters.command("activepremium") & filters.user(ADMINS))
 async def active_premium(client: Client, message: Message):
     active = await db.total_active_premium_users_count()
-    await message.reply(f"🔥 Active premium users: **{active}**")
+    await message.reply(script.ACTIVE_PREMIUM.format(active))
 
 
 # ------------------------------
-# Callback Actions
+# Callback Actions (with inline logging)
 # ------------------------------
 @Client.on_callback_query(filters.regex(r"^(add_days|edit_days|confirm_add|confirm_remove):"))
 async def premium_actions(client: Client, cq: CallbackQuery):
@@ -198,6 +107,20 @@ async def premium_actions(client: Client, cq: CallbackQuery):
         data = cq.data.split(":")
         action = data[0]
         user_id = int(data[1])
+        now = datetime.now(TZ).strftime("%d %B %Y, %I:%M %p")
+
+        # get admin details
+        admin_user = cq.from_user
+        admin_name = f"{admin_user.first_name or ''} {admin_user.last_name or ''}".strip()
+        admin_username = f"@{admin_user.username}" if admin_user.username else "❌"
+
+        # get target user info
+        try:
+            target = await client.get_users(user_id)
+            target_name = f"{target.first_name or ''} {target.last_name or ''}".strip()
+            target_username = f"@{target.username}" if target.username else "❌"
+        except:
+            target_name, target_username = "Unknown", "❌"
 
         if action in ("add_days", "edit_days", "confirm_add"):
             days = int(data[2])
@@ -210,25 +133,59 @@ async def premium_actions(client: Client, cq: CallbackQuery):
                 await db.add_premium(user_id, total_days)
                 await cq.message.edit_text(f"✅ Added {days} days.\nTotal: {total_days} days.")
                 await cq.answer("Premium extended!")
-                await log_premium_action(client, "extend", user_id, days, cq.from_user.id)
+
+                expiry = datetime.now(TZ) + timedelta(days=total_days)
+                expiry_str = expiry.strftime("%d %B %Y, %I:%M %p")
+                text = script.PREMIUM_EXTENDED.format(
+                    name=target_name, id=user_id, username=target_username,
+                    days=days, left=total_days, expiry=expiry_str,
+                    admin_name=admin_name, admin_id=cq.from_user.id, admin_username=admin_username,
+                    time=now
+                )
+                await client.send_message(LOG_CHANNEL, text)
 
             elif action == "edit_days":
                 await db.add_premium(user_id, days)
                 await cq.message.edit_text(f"✏️ Updated premium to {days} days.")
                 await cq.answer("Premium updated!")
-                await log_premium_action(client, "edit", user_id, days, cq.from_user.id)
+
+                expiry = datetime.now(TZ) + timedelta(days=days)
+                expiry_str = expiry.strftime("%d %B %Y, %I:%M %p")
+                text = script.PREMIUM_EDITED.format(
+                    name=target_name, id=user_id, username=target_username,
+                    days=days, left=days, expiry=expiry_str,
+                    admin_name=admin_name, admin_id=cq.from_user.id, admin_username=admin_username,
+                    time=now
+                )
+                await client.send_message(LOG_CHANNEL, text)
 
             elif action == "confirm_add":
                 await db.add_premium(user_id, days)
                 await cq.message.edit_text(f"✅ Premium activated for {days} days.")
                 await cq.answer("Premium added!")
-                await log_premium_action(client, "add", user_id, days, cq.from_user.id)
+
+                expiry = datetime.now(TZ) + timedelta(days=days)
+                expiry_str = expiry.strftime("%d %B %Y, %I:%M %p")
+                text = script.PREMIUM_ADDED.format(
+                    name=target_name, id=user_id, username=target_username,
+                    days=days, left=days, expiry=expiry_str,
+                    admin_name=admin_name, admin_id=cq.from_user.id, admin_username=admin_username,
+                    time=now
+                )
+                await client.send_message(LOG_CHANNEL, text)
 
         elif action == "confirm_remove":
             await db.remove_premium(user_id)
             await cq.message.edit_text(f"🚫 Premium removed from {user_id}.")
             await cq.answer("Premium removed!")
-            await log_premium_action(client, "remove", user_id, None, cq.from_user.id)
+
+            text = script.PREMIUM_REMOVED.format(
+                name=target_name, id=user_id, username=target_username,
+                left=0, expiry="Expired",
+                admin_name=admin_name, admin_id=cq.from_user.id, admin_username=admin_username,
+                time=now
+            )
+            await client.send_message(LOG_CHANNEL, text)
 
     except Exception as e:
         try:
@@ -259,20 +216,13 @@ async def check_premium_cmd(client: Client, message: Message):
         days = await db.get_premium_days_left(user_id) or 0
         expiry = datetime.now(TZ) + timedelta(days=int(days))
         expiry_str = expiry.strftime("%d %B %Y, %I:%M %p")
-        text = (
-            f"🌟 **Premium Status** 🌟\n\n"
-            f"👤 User ID: `{user_id}`\n"
-            f"✨ Status: ✅ Active\n"
-            f"⏳ Days Left: **{days}**\n"
-            f"📅 Expiry Date: **{expiry_str}**"
-        )
-        await message.reply(text)
+        await message.reply(script.CHECK_ACTIVE.format(id=user_id, days=days, expiry=expiry_str))
     else:
         keyboard = InlineKeyboardMarkup(
             [[InlineKeyboardButton("💎 Buy Premium", callback_data="buy_premium")],
              [InlineKeyboardButton("❌ Cancel", callback_data="cancel_action")]]
         )
-        await message.reply("😢 You are not a premium user.\n💡 Upgrade now!", reply_markup=keyboard)
+        await message.reply(script.CHECK_INACTIVE, reply_markup=keyboard)
 
 
 @Client.on_callback_query(filters.regex(r"^check_premium_user$"))
@@ -282,20 +232,13 @@ async def check_premium_btn(client: Client, cq: CallbackQuery):
         days = await db.get_premium_days_left(user_id) or 0
         expiry = datetime.now(TZ) + timedelta(days=int(days))
         expiry_str = expiry.strftime("%d %B %Y, %I:%M %p")
-        text = (
-            f"🌟 **Premium Status** 🌟\n\n"
-            f"👤 User ID: `{user_id}`\n"
-            f"✨ Status: ✅ Active\n"
-            f"⏳ Days Left: **{days}**\n"
-            f"📅 Expiry Date: **{expiry_str}**"
-        )
-        await cq.message.reply(text)
+        await cq.message.reply(script.CHECK_ACTIVE.format(id=user_id, days=days, expiry=expiry_str))
     else:
         keyboard = InlineKeyboardMarkup(
             [[InlineKeyboardButton("💎 Buy Premium", callback_data="buy_premium")],
              [InlineKeyboardButton("❌ Cancel", callback_data="cancel_action")]]
         )
-        await cq.message.reply("😢 You are not a premium user.\n💡 Upgrade now!", reply_markup=keyboard)
+        await cq.message.reply(script.CHECK_INACTIVE, reply_markup=keyboard)
 
 
 # ------------------------------
@@ -307,5 +250,6 @@ async def buy_premium(client: Client, cq: CallbackQuery):
         [[InlineKeyboardButton("👨‍💻 Contact Admin", url="https://t.me/YourAdminUsername")],
          [InlineKeyboardButton("❌ Cancel", callback_data="cancel_action")]]
     )
-    await cq.message.reply("💎 To buy premium, contact admin.", reply_markup=keyboard)
-    
+    await cq.message.reply(script.BUY_PREMIUM, reply_markup=keyboard)
+
+
