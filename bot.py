@@ -57,7 +57,7 @@ class Bot(Client):
         await web.TCPSite(app, bind_address, PORT).start()
 
         # Add a job to send a message at 11:59 PM daily
-        await self.send_report_message()
+        asyncio.create_task(self.send_report_message())
     
     async def send_report_message(self):
         while True:
