@@ -65,6 +65,9 @@ LOG_CHANNEL = int(environ.get('LOG_CHANNEL', 0))
 SUPPORT_CHAT = environ.get('SUPPORT_CHAT', 'https://t.me/+JZNUbgbjTjExMGU1')
 UPDATE_CHANNEL = environ.get('UPDATE_CHANNEL', 'https://t.me/+pXzjJ61z81IyMGFl')
 FILE_STORE_CHANNEL = [int(ch) for ch in (environ.get('FILE_STORE_CHANNEL', '')).split()]
+# Settings config
+FILE_FORWARD = environ.get('FILE_FORWARD', 'https://t.me/+2IRP8_NC5gM4M2I1')
+FILE_CHANNEL = int(environ.get('FILE_CHANNEL', 0))
 
 # Settings config
 SINGLE_BUTTON = is_enabled(environ.get('SINGLE_BUTTON', "True"), True)
