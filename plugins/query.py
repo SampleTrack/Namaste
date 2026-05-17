@@ -190,9 +190,6 @@ async def cb_handler(client: Client, query: CallbackQuery):
                     return
                 else:
                     await query.answer(f"Hey {query.from_user.first_name}, This is not your movie request. Request yours!", show_alert=True)
-            elif IS_VERIFY and not await check_verification(client, query.from_user.id):
-                await query.answer(url=f"https://t.me/{temp.U_NAME}?start={ident}_{file_id}")
-                return
             elif settings['botpm']:
                 if clicked == typed:
                     await query.answer(url=f"https://t.me/{temp.U_NAME}?start={ident}_{file_id}")
@@ -291,38 +288,6 @@ async def cb_handler(client: Client, query: CallbackQuery):
                 f"⚠️ Hey {query.from_user.first_name}, this is not your movie request.",
                 show_alert=True
             )
-    
-        # Check verification
-        if IS_VERIFY and not await check_verification(client, query.from_user.id):
-            verify_link = await get_token(
-                client,
-                query.from_user.id,
-                f"https://telegram.me/{temp.U_NAME}?start=",
-                file_id
-            )
-            # print for debugging
-            print(f"Verification link generated: {verify_link}")
-            btn = [
-                [
-                    InlineKeyboardButton("✅ Vᴇʀɪғʏ", url=verify_link),
-                    InlineKeyboardButton("ℹ️ Hᴏᴡ Tᴏ Vᴇʀɪғʏ", url=HOW_TO_VERIFY)
-                ]
-            ]
-            try:
-                await client.send_chat_action(query.from_user.id, enums.ChatAction.TYPING)
-                await client.send_message(
-                    chat_id=query.from_user.id,
-                    text="<b>You are not verified! Please verify to access unlimited movies for the next 12 hours.</b>",
-                    protect_content=(ident == 'checksubp'),
-                    disable_web_page_preview=True,
-                    parse_mode=enums.ParseMode.HTML,
-                    reply_markup=InlineKeyboardMarkup(btn)
-                )
-            except Exception as e:
-                logger.exception(e)
-                return await query.answer("❌ Please start the bot in PM first.", show_alert=True)
-    
-            return await query.answer("👋 Please verify first. Check your PM!", show_alert=True)
     
         # Send file to file channel
         try:
