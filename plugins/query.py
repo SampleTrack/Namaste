@@ -378,6 +378,24 @@ async def cb_handler(client: Client, query: CallbackQuery):
         await client.send_cached_media(chat_id=query.from_user.id, file_id=file_id, caption=f_caption, protect_content=True if ident == 'checksubp' else False)
     
 
+    elif query.data == "pages":
+        await query.answer()
+        
+    elif query.data == "tel":
+        await query.answer(
+            "కాపీరైట్ కారణంగా ఈ ఫైల్ 10 నిమిషాల్లో తొలగిపోతుంది, కానీ దానిని ఇక్కడికి తీసుకోవడానికి లేదా సేవ్డ్ సందేశాలలో పంపించండి మరియు డౌన్లోడ్ చేయండి!",
+            show_alert=True)
+
+    elif query.data == "mar":
+        await query.answer(
+            "कॉपीराइट मुळे ही फाइल येथून 10 मिनिटांत डिलिट केली जाईल, म्हणुन तुम्ही इथून इतर कुठे किंवा **Saved Messages** मध्ये पाठवून डाउनलोड करू शकता.",
+            show_alert=True)
+
+    elif query.data == "hin":
+        await query.answer(
+            "कॉपीराइट के कारण फ़ाइल यहां से 10 मिनट में डिलीट हो जाएगी इसलिए यहां से कहीं और ले जाकर या **Saved Messages** मे भेज कर डाउनलोड करें!",
+            show_alert=True)
+            
     elif query.data == "start":                        
         buttons = [[
             InlineKeyboardButton("➕️ Aᴅᴅ Mᴇ Tᴏ Yᴏᴜʀ Cʜᴀᴛ ➕", url=f"http://t.me/{temp.U_NAME}?startgroup=true")
