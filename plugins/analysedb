@@ -1,0 +1,200 @@
+import os
+import time
+import asyncio
+import logging
+from datetime import datetime
+from pyrogram import Client, filters
+from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
+from database.ia_filterdb import get_all_files
+from info import ADMINS
+
+logger = logging.getLogger(__name__)
+
+# ── helpers ───────────────────────────────────────────────────────────────────
+
+def get_resolution_category(file_name: str) -> str:
+    """Detect resolution from filename."""
+    name = (file_name or "").lower()
+    low_res = ["144p", "240p", "320p", "360p", "470p", "480p"]
+    for r in low_res:
+        if r in name:
+            return "low"
+    return "other"
+
+
+def format_size(size_bytes) -> str:
+    if not size_bytes:
+        return "Unknown"
+    size_bytes = int(size_bytes)
+    if size_bytes < 1024 * 1024:
+        return f"{size_bytes / 1024:.1f} KB"
+    return f"{size_bytes / (1024 * 1024):.1f} MB"
+
+
+def write_report(filepath: str, title: str, items: list, now: str, elapsed: float):
+    with open(filepath, "w", encoding="utf-8") as f:
+        f.write(f"{'='*65}\n")
+        f.write(f"  {title}\n")
+        f.write(f"  Generated : {now}\n")
+        f.write(f"  Time Taken: {elapsed}s\n")
+        f.write(f"  Total     : {len(items)}\n")
+        f.write(f"{'='*65}\n\n")
+        if not items:
+            f.write("  No files found in this category.\n")
+            return
+        for i, item in enumerate(items, 1):
+            f.write(f"[{i}]\n")
+            f.write(f"  Name     : {item['name']}\n")
+            f.write(f"  File ID  : {item['file_id']}\n")
+            f.write(f"  Size     : {item['size']}\n")
+            f.write(f"  Type     : {item['file_type']}\n")
+            f.write(f"  MIME     : {item['mime']}\n")
+            f.write(f"  Caption  : {item['caption']}\n")
+            f.write(f"{'-'*65}\n")
+
+
+# ── /analysedb command ────────────────────────────────────────────────────────
+
+@Client.on_message(filters.command("analysedb") & filters.user(ADMINS))
+async def analyse_database(bot: Client, message: Message):
+    msg = await message.reply(
+        "🔍 **Starting Database Analysis...**\n"
+        "Please wait, this may take a while depending on DB size."
+    )
+
+    start_time = time.time()
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    # ── Fetch all files ───────────────────────────────────────────────────────
+    try:
+        all_files = await get_all_files()
+    except Exception as e:
+        logger.exception(e)
+        await msg.edit(f"❌ Failed to fetch files from database.\n`{e}`")
+        return
+
+    total = len(all_files)
+    if total == 0:
+        await msg.edit("⚠️ Database is empty. No files found.")
+        return
+
+    await msg.edit(f"📦 Found **{total}** files.\n⏳ Analysing, please wait...")
+
+    invalid_files = []
+    small_files   = []
+    low_res_files = []
+
+    # ── Scan each file ────────────────────────────────────────────────────────
+    for index, file in enumerate(all_files, 1):
+        file_id   = getattr(file, "file_id",   None)
+        file_name = getattr(file, "file_name", None) or "Unknown"
+        file_size = getattr(file, "file_size", 0)    or 0
+        file_type = getattr(file, "file_type", None) or "Unknown"
+        mime_type = getattr(file, "mime_type", None) or "Unknown"
+        caption   = getattr(file, "caption",   None) or "None"
+
+        entry = {
+            "name"     : file_name,
+            "file_id"  : str(file_id) if file_id else "MISSING",
+            "size"     : format_size(file_size),
+            "file_type": file_type,
+            "mime"     : mime_type,
+            "caption"  : caption,
+        }
+
+        # Invalid: no file_id or empty
+        if not file_id or not str(file_id).strip():
+            invalid_files.append(entry)
+
+        # Small: less than 100 MB
+        if 0 < file_size < 100 * 1024 * 1024:
+            small_files.append(entry)
+
+        # Low resolution: 480p or below detected in filename
+        if get_resolution_category(file_name) == "low":
+            low_res_files.append(entry)
+
+        # Progress update every 500 files
+        if index % 500 == 0:
+            await msg.edit(
+                f"⏳ Analysed **{index}/{total}** files...\n"
+                f"❌ Invalid: `{len(invalid_files)}` | "
+                f"📦 Small: `{len(small_files)}` | "
+                f"📺 Low Res: `{len(low_res_files)}`"
+            )
+            await asyncio.sleep(0.2)
+
+    elapsed = round(time.time() - start_time, 2)
+
+    # ── Write report txt files ────────────────────────────────────────────────
+    invalid_path = "/tmp/invalid_files.txt"
+    small_path   = "/tmp/small_files.txt"
+    lowres_path  = "/tmp/lowres_files.txt"
+
+    write_report(invalid_path, "INVALID FILES — Missing or Empty file_id", invalid_files, now, elapsed)
+    write_report(small_path,   "SMALL FILES — Size Less Than 100 MB",       small_files,   now, elapsed)
+    write_report(lowres_path,  "LOW RESOLUTION FILES — 480p or Below",      low_res_files, now, elapsed)
+
+    # ── Store paths for callback ──────────────────────────────────────────────
+    bot.analysis_files = {
+        "dl_invalid": invalid_path,
+        "dl_small"  : small_path,
+        "dl_lowres" : lowres_path,
+    }
+
+    # ── Summary ───────────────────────────────────────────────────────────────
+    summary = (
+        f"✅ **Analysis Complete!**\n\n"
+        f"🗂 Total Scanned   : `{total}`\n"
+        f"⏱ Time Taken      : `{elapsed}s`\n"
+        f"🕐 Analysed At     : `{now}`\n\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"❌ Invalid Files   : `{len(invalid_files)}`\n"
+        f"📦 Small (<100MB)  : `{len(small_files)}`\n"
+        f"📺 Low Res (<480p) : `{len(low_res_files)}`\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"Tap a button below to download the report:"
+    )
+
+    buttons = InlineKeyboardMarkup([
+        [InlineKeyboardButton(
+            f"❌ Invalid Files ({len(invalid_files)})", callback_data="dl_invalid")],
+        [InlineKeyboardButton(
+            f"📦 Small Files ({len(small_files)})",     callback_data="dl_small")],
+        [InlineKeyboardButton(
+            f"📺 Low Res Files ({len(low_res_files)})", callback_data="dl_lowres")],
+    ])
+
+    await msg.edit(summary, reply_markup=buttons)
+
+
+# ── Callback — send txt report file ──────────────────────────────────────────
+
+@Client.on_callback_query(
+    filters.regex("^dl_(invalid|small|lowres)$") & filters.user(ADMINS)
+)
+async def send_report_file(bot: Client, callback_query):
+    await callback_query.answer("Sending report...", show_alert=False)
+
+    key = callback_query.data
+    files = getattr(bot, "analysis_files", {})
+
+    if not files or key not in files or not os.path.exists(files[key]):
+        await callback_query.message.reply(
+            "⚠️ Report not found. Please run /analysedb again."
+        )
+        return
+
+    labels = {
+        "dl_invalid": "❌ Invalid Files Report",
+        "dl_small"  : "📦 Small Files Report (<100MB)",
+        "dl_lowres" : "📺 Low Resolution Report (<480p)",
+    }
+
+    await callback_query.message.reply_document(
+        document=files[key],
+        caption=(
+            f"**{labels[key]}**\n"
+            f"Generated by `/analysedb`"
+        )
+    )
