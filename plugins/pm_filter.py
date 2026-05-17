@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
 
 
-@Client.on_message(filters.private & filters.text & filters.chat(AUTH_USERS) if AUTH_USERS else filters.text & filters.private)
+@Client.on_message(filters.private & filters.text & filters.chat(AUTH_USERS) if AUTH_USERS else filters.text & filters.private, group=1)
 async def auto_pm_fill(b, m):
     if PMFILTER:       
         if G_FILTER:
@@ -96,7 +96,7 @@ async def pm_spoll_tester(bot, query):
         await k.delete()
 
 
-async def pm_AutoFilter(client, msg, pmspoll=False, group=1):    
+async def pm_AutoFilter(client, msg, pmspoll=False):    
     if not pmspoll:
         message = msg  
         if 2 < len(message.text) < 100:
