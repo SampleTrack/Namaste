@@ -1,200 +1,113 @@
 import os
 import time
-import asyncio
-import logging
-from datetime import datetime
-from pyrogram import Client, filters
-from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
-from database.ia_filterdb import get_all_files
-from info import ADMINS
+import re
+from pyrogram.types import InputMediaDocument, InlineKeyboardButton, InlineKeyboardMarkup
+from utils import temp
+from database.ia_filterdb import Media
 
-logger = logging.getLogger(__name__)
-
-# ── helpers ───────────────────────────────────────────────────────────────────
-
-def get_resolution_category(file_name: str) -> str:
-    """Detect resolution from filename."""
-    name = (file_name or "").lower()
-    low_res = ["144p", "240p", "320p", "360p", "470p", "480p"]
-    for r in low_res:
-        if r in name:
-            return "low"
-    return "other"
-
-
-def format_size(size_bytes) -> str:
-    if not size_bytes:
-        return "Unknown"
-    size_bytes = int(size_bytes)
-    if size_bytes < 1024 * 1024:
-        return f"{size_bytes / 1024:.1f} KB"
-    return f"{size_bytes / (1024 * 1024):.1f} MB"
-
-
-def write_report(filepath: str, title: str, items: list, now: str, elapsed: float):
-    with open(filepath, "w", encoding="utf-8") as f:
-        f.write(f"{'='*65}\n")
-        f.write(f"  {title}\n")
-        f.write(f"  Generated : {now}\n")
-        f.write(f"  Time Taken: {elapsed}s\n")
-        f.write(f"  Total     : {len(items)}\n")
-        f.write(f"{'='*65}\n\n")
-        if not items:
-            f.write("  No files found in this category.\n")
-            return
-        for i, item in enumerate(items, 1):
-            f.write(f"[{i}]\n")
-            f.write(f"  Name     : {item['name']}\n")
-            f.write(f"  File ID  : {item['file_id']}\n")
-            f.write(f"  Size     : {item['size']}\n")
-            f.write(f"  Type     : {item['file_type']}\n")
-            f.write(f"  MIME     : {item['mime']}\n")
-            f.write(f"  Caption  : {item['caption']}\n")
-            f.write(f"{'-'*65}\n")
-
-
-# ── /analysedb command ────────────────────────────────────────────────────────
-
-@Client.on_message(filters.command("analysedb") & filters.user(ADMINS))
-async def analyse_database(bot: Client, message: Message):
-    msg = await message.reply(
-        "🔍 **Starting Database Analysis...**\n"
-        "Please wait, this may take a while depending on DB size."
-    )
-
+@Client.on_message(filters.command("analyzedb") & filters.user(ADMINS))
+async def analyze_database(client, message):
+    msg = await message.reply("Analyzing database. This will take time and server resources. Please wait...")
     start_time = time.time()
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    # ── Fetch all files ───────────────────────────────────────────────────────
-    try:
-        all_files = await get_all_files()
-    except Exception as e:
-        logger.exception(e)
-        await msg.edit(f"❌ Failed to fetch files from database.\n`{e}`")
-        return
+    # 100 MB limit in bytes
+    size_limit = 100 * 1024 * 1024 
+    
+    # Regex logic: Matches numbers from 100p to 399p, and 400p to 479p.
+    # It will NOT match 480p, 720p, 1080p.
+    res_pattern = re.compile(r'\b([1-3][0-9]{2}|4[0-7][0-9])p\b', re.IGNORECASE)
 
-    total = len(all_files)
-    if total == 0:
-        await msg.edit("⚠️ Database is empty. No files found.")
-        return
+    # Reset cache for this run
+    temp.INVALID_FILES = {'size': [], 'res': [], 'both': []}
+    out_text = "Invalid Files Report:\n\n"
 
-    await msg.edit(f"📦 Found **{total}** files.\n⏳ Analysing, please wait...")
+    # Use a direct MongoDB cursor to avoid Out-Of-Memory crashes
+    cursor = Media.find({})
 
-    invalid_files = []
-    small_files   = []
-    low_res_files = []
+    async for doc in cursor:
+        file_id = getattr(doc, 'file_id', None)
+        file_name = getattr(doc, 'file_name', "")
+        file_size = getattr(doc, 'file_size', 0)
 
-    # ── Scan each file ────────────────────────────────────────────────────────
-    for index, file in enumerate(all_files, 1):
-        file_id   = getattr(file, "file_id",   None)
-        file_name = getattr(file, "file_name", None) or "Unknown"
-        file_size = getattr(file, "file_size", 0)    or 0
-        file_type = getattr(file, "file_type", None) or "Unknown"
-        mime_type = getattr(file, "mime_type", None) or "Unknown"
-        caption   = getattr(file, "caption",   None) or "None"
+        if not file_id:
+            continue
 
-        entry = {
-            "name"     : file_name,
-            "file_id"  : str(file_id) if file_id else "MISSING",
-            "size"     : format_size(file_size),
-            "file_type": file_type,
-            "mime"     : mime_type,
-            "caption"  : caption,
-        }
+        is_small = file_size < size_limit
+        is_low_res = bool(res_pattern.search(file_name))
 
-        # Invalid: no file_id or empty
-        if not file_id or not str(file_id).strip():
-            invalid_files.append(entry)
+        if is_small and is_low_res:
+            temp.INVALID_FILES['both'].append(file_id)
+            out_text += f"[BOTH] {file_name} | Size: {file_size} bytes | ID: {file_id}\n"
+        elif is_small:
+            temp.INVALID_FILES['size'].append(file_id)
+            out_text += f"[<100MB] {file_name} | Size: {file_size} bytes | ID: {file_id}\n"
+        elif is_low_res:
+            temp.INVALID_FILES['res'].append(file_id)
+            out_text += f"[<480p] {file_name} | Size: {file_size} bytes | ID: {file_id}\n"
 
-        # Small: less than 100 MB
-        if 0 < file_size < 100 * 1024 * 1024:
-            small_files.append(entry)
+    end_time = time.time()
+    elapsed = round(end_time - start_time, 2)
 
-        # Low resolution: 480p or below detected in filename
-        if get_resolution_category(file_name) == "low":
-            low_res_files.append(entry)
+    count_size = len(temp.INVALID_FILES['size'])
+    count_res = len(temp.INVALID_FILES['res'])
+    count_both = len(temp.INVALID_FILES['both'])
+    total_invalid = count_size + count_res + count_both
 
-        # Progress update every 500 files
-        if index % 500 == 0:
-            await msg.edit(
-                f"⏳ Analysed **{index}/{total}** files...\n"
-                f"❌ Invalid: `{len(invalid_files)}` | "
-                f"📦 Small: `{len(small_files)}` | "
-                f"📺 Low Res: `{len(low_res_files)}`"
-            )
-            await asyncio.sleep(0.2)
+    if total_invalid == 0:
+        return await msg.edit(f"Database analyzed in `{elapsed}s`. Zero invalid files found based on your criteria.")
 
-    elapsed = round(time.time() - start_time, 2)
+    # Write report to text file
+    file_path = "invalid_files_report.txt"
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(f"Analysis completed in {elapsed} seconds.\n")
+        f.write(f"Total Invalid Files Found: {total_invalid}\n")
+        f.write("-" * 50 + "\n\n")
+        f.write(out_text)
 
-    # ── Write report txt files ────────────────────────────────────────────────
-    invalid_path = "/tmp/invalid_files.txt"
-    small_path   = "/tmp/small_files.txt"
-    lowres_path  = "/tmp/lowres_files.txt"
+    # Generate Buttons
+    buttons = [
+        [InlineKeyboardButton(f"Delete < 100MB ({count_size})", callback_data="del_inv_size")],
+        [InlineKeyboardButton(f"Delete < 480p ({count_res})", callback_data="del_inv_res")],
+        [InlineKeyboardButton(f"Delete Both Limits ({count_both})", callback_data="del_inv_both")]
+    ]
 
-    write_report(invalid_path, "INVALID FILES — Missing or Empty file_id", invalid_files, now, elapsed)
-    write_report(small_path,   "SMALL FILES — Size Less Than 100 MB",       small_files,   now, elapsed)
-    write_report(lowres_path,  "LOW RESOLUTION FILES — 480p or Below",      low_res_files, now, elapsed)
-
-    # ── Store paths for callback ──────────────────────────────────────────────
-    bot.analysis_files = {
-        "dl_invalid": invalid_path,
-        "dl_small"  : small_path,
-        "dl_lowres" : lowres_path,
-    }
-
-    # ── Summary ───────────────────────────────────────────────────────────────
-    summary = (
-        f"✅ **Analysis Complete!**\n\n"
-        f"🗂 Total Scanned   : `{total}`\n"
-        f"⏱ Time Taken      : `{elapsed}s`\n"
-        f"🕐 Analysed At     : `{now}`\n\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"❌ Invalid Files   : `{len(invalid_files)}`\n"
-        f"📦 Small (<100MB)  : `{len(small_files)}`\n"
-        f"📺 Low Res (<480p) : `{len(low_res_files)}`\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"Tap a button below to download the report:"
-    )
-
-    buttons = InlineKeyboardMarkup([
-        [InlineKeyboardButton(
-            f"❌ Invalid Files ({len(invalid_files)})", callback_data="dl_invalid")],
-        [InlineKeyboardButton(
-            f"📦 Small Files ({len(small_files)})",     callback_data="dl_small")],
-        [InlineKeyboardButton(
-            f"📺 Low Res Files ({len(low_res_files)})", callback_data="dl_lowres")],
-    ])
-
-    await msg.edit(summary, reply_markup=buttons)
-
-
-# ── Callback — send txt report file ──────────────────────────────────────────
-
-@Client.on_callback_query(
-    filters.regex("^dl_(invalid|small|lowres)$") & filters.user(ADMINS)
-)
-async def send_report_file(bot: Client, callback_query):
-    await callback_query.answer("Sending report...", show_alert=False)
-
-    key = callback_query.data
-    files = getattr(bot, "analysis_files", {})
-
-    if not files or key not in files or not os.path.exists(files[key]):
-        await callback_query.message.reply(
-            "⚠️ Report not found. Please run /analysedb again."
-        )
-        return
-
-    labels = {
-        "dl_invalid": "❌ Invalid Files Report",
-        "dl_small"  : "📦 Small Files Report (<100MB)",
-        "dl_lowres" : "📺 Low Resolution Report (<480p)",
-    }
-
-    await callback_query.message.reply_document(
-        document=files[key],
+    await message.reply_document(
+        document=file_path,
         caption=(
-            f"**{labels[key]}**\n"
-            f"Generated by `/analysedb`"
-        )
+            f"**Database Analysis Complete**\n\n"
+            f"⏱ **Time Taken:** `{elapsed} seconds`\n"
+            f"🗑 **Total Invalid:** `{total_invalid}`\n\n"
+            f"**WARNING:** Deletion is permanent. Review the text file before clicking."
+        ),
+        reply_markup=InlineKeyboardMarkup(buttons)
     )
+    
+    await msg.delete()
+    os.remove(file_path)
+
+
+@Client.on_callback_query(filters.regex(r'^del_inv_') & filters.user(ADMINS))
+async def delete_invalid_files(client, query):
+    action = query.data.split('_')[2]
+    target_ids = temp.INVALID_FILES.get(action, [])
+
+    if not target_ids:
+        return await query.answer("No files found in memory to delete. Run /analyzedb again.", show_alert=True)
+
+    # Remove buttons to prevent double-clicking
+    await query.message.edit_reply_markup(reply_markup=None)
+    status_msg = await query.message.reply(f"Deleting {len(target_ids)} files. Please wait, this might take a minute...")
+
+    # Delete in chunks of 1000 to prevent MongoDB timeouts and lockups
+    deleted_count = 0
+    chunk_size = 1000
+    
+    for i in range(0, len(target_ids), chunk_size):
+        chunk = target_ids[i:i + chunk_size]
+        result = await Media.collection.delete_many({'_id': {'$in': chunk}})
+        deleted_count += result.deleted_count
+
+    # Clear memory for that specific category so it can't be triggered again
+    temp.INVALID_FILES[action] = []
+
+    await status_msg.edit(f"**Action Complete.**\nSuccessfully deleted `{deleted_count}` files from the database.")
