@@ -95,11 +95,12 @@ async def pm_spoll_tester(bot, query):
         await asyncio.sleep(10)
         await k.delete()
 
-
 async def pm_AutoFilter(client, msg, pmspoll=False):    
     if not pmspoll:
-        message = msg   
-        if re.findall("((^\/|^,|^!|^\.|^[\U0001F600-\U000E007F]).*)", message.text): return
+        message = msg
+        # Ignore only special symbols/emojis
+        if re.match(r"^[,!.\U0001F600-\U000E007F]", message.text):
+            return
         if 2 < len(message.text) < 100:
             search = message.text
             files, offset, total_results = await get_search_results(search.lower(), offset=0, filter=True)
